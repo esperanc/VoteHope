@@ -212,9 +212,8 @@ with routes, plus the server.
 ### Data model (SQLite)
 
 ```
-quizzes      (id, title, description, default_time_limit_s, created_at, updated_at)
-questions    (id, quiz_id, position, kind, selection, body_md, time_limit_s NULL)
-options      (id, question_id, position, body_md, is_correct)
+quizzes      (id, title, description, default_time_limit_s, questions_json, revision,
+              created_at, updated_at)
 images       (id, filename, mime, width, height, created_at)
 
 sessions     (id, quiz_id, code, mode, status, settings_json, quiz_snapshot_json,
@@ -225,7 +224,15 @@ answers      (id, session_id, participant_id, question_id, option_ids_json,
               is_correct NULL, answered_at, UNIQUE(participant_id, question_id))
 ```
 
-`question_id` in `answers` refers to the question as it exists in the session's snapshot.
+Questions (with their options) are stored as a JSON document on the quiz
+(`questions_json`), each with a short random string id. The editor saves whole
+quizzes, and `revision` rejects a save based on an outdated copy (e.g. the quiz
+open in two windows). `question_id` in `answers` refers to the question id in the
+session's snapshot.
+
+Images: raster uploads are scaled to fit 1600×1600 and re-encoded as WebP (which
+also strips photo metadata such as GPS position); SVGs are kept as vectors and all
+media is served with a sandboxing Content-Security-Policy.
 
 ---
 

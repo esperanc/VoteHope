@@ -8,6 +8,8 @@ export interface Config {
   /** Base URL students use to reach the server (encoded in QR codes). No trailing slash. */
   publicUrl: string;
   dataDir: string;
+  /** Uploaded images (inside dataDir). */
+  mediaDir: string;
   /** Built front end (dist/client). Served only if it exists. */
   clientDir: string;
   /** Set when running behind a reverse proxy (Caddy, nginx) so client IPs are read correctly. */
@@ -35,7 +37,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
 
   const dataDir = path.resolve(env.DATA_DIR ?? 'data');
-  mkdirSync(dataDir, { recursive: true });
+  const mediaDir = path.join(dataDir, 'media');
+  mkdirSync(mediaDir, { recursive: true });
 
   const publicUrl = (env.PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/+$/, '');
 
@@ -44,6 +47,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: env.HOST ?? (env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1'),
     publicUrl,
     dataDir,
+    mediaDir,
     clientDir: path.resolve(import.meta.dirname, '../../dist/client'),
     trustProxy: env.TRUST_PROXY === 'true' || env.TRUST_PROXY === '1',
     secureCookies: publicUrl.startsWith('https://'),

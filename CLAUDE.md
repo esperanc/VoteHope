@@ -7,6 +7,9 @@
 - TypeScript is pinned to 6.x because svelte-check does not support TS 7 yet.
 - Database is the built-in `node:sqlite`. Schema changes are new entries appended to
   `src/server/migrations.ts`; never edit an entry that may have been applied.
+- Quiz content types, limits and completeness checks live in `src/shared/quiz.ts` (used by
+  both server and client). The server validates structure with zod (`src/server/schemas.ts`);
+  incomplete drafts are allowed and reported as issues, never rejected.
 - Every UI string goes in both `src/client/i18n/en.ts` and `pt.ts` (pt is type-checked
   against en). pt is Brazilian Portuguese.
 - API errors are `{ error: "<code>" }`; the client translates codes into messages.

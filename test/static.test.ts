@@ -27,6 +27,8 @@ describe('serving the built front end', () => {
       expect(response.statusCode, url).toBe(200);
       expect(response.headers['content-type']).toMatch(/text\/html/);
       expect(response.headers['cache-control']).toBe('no-cache');
+      // The sandbox policy is for uploaded media only; it would break the app.
+      expect(response.headers['content-security-policy']).toBeUndefined();
     }
   });
 

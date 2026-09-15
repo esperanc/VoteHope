@@ -53,7 +53,7 @@ export interface AdminAuth {
   isAdmin(request: FastifyRequest): boolean;
   startSession(reply: FastifyReply): void;
   endSession(reply: FastifyReply): void;
-  requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void>;
+  requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | void>;
 }
 
 export function createAdminAuth(config: Config): AdminAuth {
@@ -93,7 +93,7 @@ export function createAdminAuth(config: Config): AdminAuth {
       reply.clearCookie(ADMIN_COOKIE, { path: '/' });
     },
     async requireAdmin(request, reply) {
-      if (!isAdmin(request)) await reply.code(401).send({ error: 'unauthorized' });
+      if (!isAdmin(request)) return reply.code(401).send({ error: 'unauthorized' });
     },
   };
 }

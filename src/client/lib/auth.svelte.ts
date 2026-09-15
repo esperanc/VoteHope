@@ -1,10 +1,15 @@
-import { api } from './api.ts';
+import { api, setUnauthorizedHandler } from './api.ts';
 
 interface MeResponse {
   authenticated: boolean;
 }
 
 export const auth = $state<{ status: 'unknown' | 'in' | 'out' }>({ status: 'unknown' });
+
+// An expired login sends the presenter back to the login page (see App.svelte).
+setUnauthorizedHandler(() => {
+  auth.status = 'out';
+});
 
 export async function refreshAuth(): Promise<void> {
   try {

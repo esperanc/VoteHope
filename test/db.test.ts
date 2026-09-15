@@ -15,26 +15,33 @@ describe('database', () => {
       .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`)
       .all()
       .map((row) => (row as { name: string }).name);
-    expect(tables).toEqual(['answers', 'images', 'options', 'participants', 'questions', 'quizzes', 'sessions']);
+    expect(tables).toEqual(['answers', 'images', 'participants', 'quizzes', 'sessions']);
     db.close();
   });
 
-  it('enforces foreign keys and cascades quiz deletion', () => {
+  it('keeps sessions when their quiz is deleted, and cascades session deletion', () => {
     const db = openDatabase(':memory:');
     const quiz = db.prepare(`INSERT INTO quizzes (title) VALUES ('Q')`).run();
-    const question = db
-      .prepare(`INSERT INTO questions (quiz_id, position, kind, selection) VALUES (?, 0, 'quiz', 'single')`)
+    const session = db
+      .prepare(`INSERT INTO sessions (quiz_id, code, mode, status, quiz_snapshot_json) VALUES (?, '1', 'sync', 'lobby', '{}')`)
       .run(quiz.lastInsertRowid);
-    db.prepare(`INSERT INTO options (question_id, position, is_correct) VALUES (?, 0, 1)`).run(
-      question.lastInsertRowid,
+    const participant = db
+      .prepare(`INSERT INTO participants (session_id, name, name_key, token_hash) VALUES (?, 'Ana', 'ana', 't')`)
+      .run(session.lastInsertRowid);
+    db.prepare(`INSERT INTO answers (session_id, participant_id, question_id, option_ids_json) VALUES (?, ?, 'q1', '[]')`).run(
+      session.lastInsertRowid,
+      participant.lastInsertRowid,
     );
 
+    db.prepare('DELETE FROM quizzes').run();
+    expect(db.prepare('SELECT quiz_id FROM sessions').get()).toEqual({ quiz_id: null });
+
     expect(() =>
-      db.prepare(`INSERT INTO questions (quiz_id, position, kind, selection) VALUES (999, 0, 'quiz', 'single')`).run(),
+      db.prepare(`INSERT INTO participants (session_id, name, name_key, token_hash) VALUES (999, 'X', 'x', 'u')`).run(),
     ).toThrow(/FOREIGN KEY/);
 
-    db.prepare('DELETE FROM quizzes WHERE id = ?').run(quiz.lastInsertRowid);
-    expect(db.prepare('SELECT COUNT(*) AS n FROM options').get()).toEqual({ n: 0 });
+    db.prepare('DELETE FROM sessions').run();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM answers').get()).toEqual({ n: 0 });
     db.close();
   });
 

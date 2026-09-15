@@ -31,9 +31,24 @@ export function setLocale(locale: Locale): void {
   }
 }
 
+type Params = Record<string, string | number>;
+
 /** Translates a key; `{name}` placeholders are replaced from `params`. */
-export function t(key: MessageKey, params?: Record<string, string | number>): string {
+export function t(key: MessageKey, params?: Params): string {
   const text = dictionaries[i18n.locale][key];
   if (!params) return text;
   return text.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match));
+}
+
+/** Keys that have `.one` and `.other` variants. */
+type PluralKey = { [K in MessageKey]: K extends `${infer Base}.one` ? Base : never }[MessageKey];
+
+/** Translates a count: `{base}.one` for 1, `{base}.other` otherwise; `{count}` is filled in. */
+export function tn(base: PluralKey, count: number, params?: Params): string {
+  return t(`${base}.${count === 1 ? 'one' : 'other'}` as MessageKey, { count, ...params });
+}
+
+export function formatDateTime(iso: string): string {
+  const locale = i18n.locale === 'pt' ? 'pt-BR' : 'en';
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 }
