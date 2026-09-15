@@ -1,0 +1,34 @@
+# Example production setup: VoteHope behind Caddy, which obtains HTTPS
+# certificates automatically. Before starting:
+#   1. Point your domain's DNS at this machine.
+#   2. Replace quiz.example.org here and in deploy/Caddyfile.
+#   3. Put ADMIN_PASSWORD_HASH=... in a .env file next to this one
+#      (generate it with: npm run hash-password).
+# Then: docker compose up -d --build
+
+services:
+  votehope:
+    build: .
+    restart: unless-stopped
+    environment:
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?Set ADMIN_PASSWORD_HASH in .env}
+      PUBLIC_URL: https://quiz.example.org
+      TRUST_PROXY: 'true'
+    volumes:
+      - votehope-data:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  votehope-data:
+  caddy-data:
+  caddy-config:
