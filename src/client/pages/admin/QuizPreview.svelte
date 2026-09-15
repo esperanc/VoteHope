@@ -5,7 +5,7 @@
   import QuestionView from '../../components/QuestionView.svelte';
   import { api } from '../../lib/api.ts';
   import { t } from '../../lib/i18n.svelte.ts';
-  import { shuffled } from '../../lib/shuffle.ts';
+  import { shuffled } from '../../../shared/random.ts';
   import type { PageParams } from '../../routes.ts';
 
   let { params }: { params: PageParams } = $props();

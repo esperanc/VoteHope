@@ -207,6 +207,17 @@
       <Icon name="eye" />
       {t('editor.preview')}
     </button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      onclick={async () => {
+        await save();
+        navigate(`/admin/quizzes/${params.id}/sessions`);
+      }}
+    >
+      <Icon name="play" />
+      {t('editor.run')}
+    </button>
     <a class="btn" href={`/api/admin/quizzes/${quiz.id}/export`} download>
       <Icon name="download" />
       {t('dashboard.export')}

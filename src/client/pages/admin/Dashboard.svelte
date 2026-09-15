@@ -126,6 +126,9 @@
             </span>
           </a>
           <div class="row-actions">
+            <a class="icon-btn" href={`/admin/quizzes/${quiz.id}/sessions`} title={t('dashboard.run')} aria-label={`${t('dashboard.run')}: ${name}`}>
+              <Icon name="play" />
+            </a>
             <button type="button" class="icon-btn" disabled={busy} title={t('dashboard.duplicate')} aria-label={`${t('dashboard.duplicate')}: ${name}`} onclick={() => duplicate(quiz)}>
               <Icon name="copy" />
             </button>

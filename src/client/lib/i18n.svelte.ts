@@ -48,7 +48,16 @@ export function tn(base: PluralKey, count: number, params?: Params): string {
   return t(`${base}.${count === 1 ? 'one' : 'other'}` as MessageKey, { count, ...params });
 }
 
+const intlLocale = () => (i18n.locale === 'pt' ? 'pt-BR' : 'en');
+
 export function formatDateTime(iso: string): string {
-  const locale = i18n.locale === 'pt' ? 'pt-BR' : 'en';
-  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+  return new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+}
+
+export function formatTime(date: Date): string {
+  return new Intl.DateTimeFormat(intlLocale(), { timeStyle: 'medium' }).format(date);
+}
+
+export function formatNumber(value: number, maximumFractionDigits = 1): string {
+  return new Intl.NumberFormat(intlLocale(), { maximumFractionDigits }).format(value);
 }

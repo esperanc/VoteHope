@@ -12,6 +12,7 @@ interface Route {
 // Pages are loaded on demand, so students' phones never download the admin UI.
 const routes: Route[] = [
   { pattern: /^\/$/, load: () => import('./pages/Home.svelte') },
+  { pattern: /^\/j\/(?<code>\d{6})\/?$/, load: () => import('./pages/student/Join.svelte') },
   { pattern: /^\/admin\/login\/?$/, load: () => import('./pages/admin/Login.svelte') },
   { pattern: /^\/admin\/?$/, load: () => import('./pages/admin/Dashboard.svelte'), admin: true },
   {
@@ -22,6 +23,17 @@ const routes: Route[] = [
   {
     pattern: /^\/admin\/quizzes\/(?<id>\d+)\/preview\/?$/,
     load: () => import('./pages/admin/QuizPreview.svelte'),
+    admin: true,
+  },
+  {
+    pattern: /^\/admin\/quizzes\/(?<id>\d+)\/sessions\/?$/,
+    load: () => import('./pages/admin/QuizSessions.svelte'),
+    admin: true,
+  },
+  { pattern: /^\/admin\/sessions\/?$/, load: () => import('./pages/admin/Sessions.svelte'), admin: true },
+  {
+    pattern: /^\/admin\/sessions\/(?<id>\d+)\/?$/,
+    load: () => import('./pages/admin/SessionPage.svelte'),
     admin: true,
   },
 ];

@@ -35,10 +35,10 @@ async function send<T>(url: string, init: RequestInit): Promise<T> {
   return data as T;
 }
 
-export function api<T>(method: Method, url: string, body?: unknown): Promise<T> {
+export function api<T>(method: Method, url: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {
   return send<T>(url, {
     method,
-    headers: body === undefined ? {} : { 'content-type': 'application/json' },
+    headers: body === undefined ? headers : { ...headers, 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }

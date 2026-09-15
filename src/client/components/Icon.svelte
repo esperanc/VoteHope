@@ -15,6 +15,10 @@
     alert: 'M12 3l10 18H2zM12 10v4M12 17.5v.01',
     grip: 'M9 6v.01M15 6v.01M9 12v.01M15 12v.01M9 18v.01M15 18v.01',
     shuffle: 'M4 7h3c5 0 5 10 10 10h3M4 17h3c2 0 3-1.5 4-3.5M16 4l4 3-4 3M16 14l4 3-4 3M13 9.5C14 8 15 7 17 7h3',
+    play: 'M8 5.5v13l10-6.5z',
+    clock: 'M12 7.5V12l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18',
+    maximize: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+    x: 'M6 6l12 12M18 6L6 18',
   } as const;
 
   export type IconName = keyof typeof paths;

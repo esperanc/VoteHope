@@ -1,8 +1,11 @@
 <script lang="ts">
   // A question as students see it. Shared by the editor preview and the student screens.
-  import type { Question, QuizOption } from '../../shared/quiz.ts';
+  import type { StudentQuestion } from '../../shared/session.ts';
   import { t } from '../lib/i18n.svelte.ts';
   import Markdown from './Markdown.svelte';
+
+  /** Quiz questions (editor) and student questions (without correct flags) both fit. */
+  type ViewQuestion = Pick<StudentQuestion, 'id' | 'selection' | 'body' | 'options'>;
 
   let {
     question,
@@ -10,8 +13,8 @@
     selected = $bindable([]),
     disabled = false,
   }: {
-    question: Question;
-    /** Option ids in display order (options are shuffled per student). Defaults to authored order. */
+    question: ViewQuestion;
+    /** Option ids in display order. Defaults to the order of question.options. */
     order?: string[];
     selected?: string[];
     disabled?: boolean;
@@ -20,7 +23,7 @@
   const multiple = $derived(question.selection === 'multiple');
   const options = $derived(
     order
-      ? order.map((id) => question.options.find((option) => option.id === id)).filter((o): o is QuizOption => !!o)
+      ? order.map((id) => question.options.find((option) => option.id === id)).filter((option) => option !== undefined)
       : question.options,
   );
 

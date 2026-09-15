@@ -34,7 +34,7 @@ Environment variables (or a `.env` file):
 |---|---|---|
 | `ADMIN_PASSWORD_HASH` | — | Hashed admin password (preferred) |
 | `ADMIN_PASSWORD` | — | Plain admin password (if no hash is set) |
-| `PUBLIC_URL` | `http://localhost:PORT` | Address students use; encoded in QR codes |
+| `PUBLIC_URL` | address in the presenter's browser | Address students use; encoded in join links and QR codes |
 | `PORT` | `3000` | HTTP port |
 | `HOST` | `127.0.0.1` (dev) / `0.0.0.0` (production) | Interface to listen on |
 | `DATA_DIR` | `./data` | Database, uploaded images, session secret |

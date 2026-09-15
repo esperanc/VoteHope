@@ -13,4 +13,11 @@
 - Every UI string goes in both `src/client/i18n/en.ts` and `pt.ts` (pt is type-checked
   against en). pt is Brazilian Portuguese.
 - API errors are `{ error: "<code>" }`; the client translates codes into messages.
+- Svelte: never name a prop or variable `state` in a component that uses `$state` (the
+  compiler treats `$state` as a store read of it).
+- Students authenticate with a per-session token (`Authorization: Bearer`), kept in
+  localStorage by `src/client/lib/play.ts`. Anything sent to students must not reveal
+  correct options (`StudentQuestion` has no `correct` field; tests check the JSON).
+- Server logic takes `now` as a parameter and routes pass `Date.now()`, so tests can
+  freeze time with `vi.spyOn(Date, 'now')`.
 - Verify with `npm run check && npm test && npm run build`.

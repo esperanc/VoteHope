@@ -52,7 +52,8 @@ and no third-party services.
 
 ## 3. Joining (both modes)
 
-- Each session gets a 6-digit code. Join URL: `PUBLIC_URL/j/482913`. The QR code encodes that URL.
+- Each session gets a 6-digit code, never reused. Join URL: `PUBLIC_URL/j/482913` (without
+  `PUBLIC_URL`, the address the presenter's browser is using). The QR code encodes that URL.
 - Student enters a name (1–40 chars) and optionally an email.
   Names are unique within a session (case- and accent-insensitive comparison).
 - The server returns a participant token, kept in the phone's `localStorage`.
@@ -134,9 +135,14 @@ LOBBY ──start──▶ OPEN(q1) ──deadline or "close now"──▶ CLOSE
   - `none` / `total`: student can move back and forth and change answers freely.
   - `perQuestion`: forward only; when a question's time is up it is recorded as
     unanswered, a "time's up" message appears, and the next question is shown automatically.
+    A question's clock keeps running while the phone is locked; a student who returns after
+    it ran out continues with the next question and its full time (breaks between questions
+    are possible, stretching a question is not).
+- Timers start when the student taps **Start** on the intro screen, not when they join.
 - Answers are saved to the server as they are chosen (nothing lost if the phone dies).
-- The attempt ends with a **confirmation screen** listing unanswered questions →
-  "Submit final answers". Only then is the attempt considered complete.
+- The attempt ends with a **review screen** listing unanswered questions →
+  "Submit answers". Only then is the attempt considered complete. With a timer per
+  question there is nothing left to review, so leaving the last question submits.
 - If the total timer expires or the session closes, the attempt is auto-submitted with
   whatever was answered.
 - All timers are enforced by the server (start time stored); the client countdown is cosmetic.
@@ -152,7 +158,8 @@ Per session (admin only):
   Polls show distribution only.
 - **Matrix view:** participants × questions, ✓ / ✗ / — (unanswered).
 - **CSV export:** UTF-8 with BOM (opens correctly in Excel). Separator `;` when the UI
-  is in Portuguese (matches pt-BR Excel), `,` otherwise.
+  is in Portuguese (matches pt-BR Excel), `,` otherwise. One row per student with the
+  option letters (in editor order) chosen for each question; built in the browser.
 - Per quiz: list of all its sessions with date, mode, participant count.
 - Delete a session and its data.
 

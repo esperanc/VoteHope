@@ -24,7 +24,7 @@ const app = await buildApp(config, db, {
 });
 
 await app.listen({ port: config.port, host: config.host });
-app.log.info(`Students join at ${config.publicUrl}`);
+if (config.publicUrl) app.log.info(`Students join at ${config.publicUrl}`);
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, async () => {

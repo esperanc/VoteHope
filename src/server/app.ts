@@ -10,8 +10,11 @@ import type { Config } from './config.ts';
 import { createAdminAuth } from './auth.ts';
 import { createImageStore } from './images.ts';
 import { createQuizStore } from './quizzes.ts';
+import { createSessionStore } from './sessions.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { authoringRoutes } from './routes/authoring.ts';
+import { playRoutes } from './routes/play.ts';
+import { sessionRoutes } from './routes/sessions.ts';
 
 export interface AppOptions {
   logger?: FastifyServerOptions['logger'];
@@ -22,6 +25,7 @@ export async function buildApp(config: Config, db: DatabaseSync, options: AppOpt
   const auth = createAdminAuth(config);
   const quizzes = createQuizStore(db);
   const images = createImageStore(db, config.mediaDir);
+  const sessions = createSessionStore(db);
 
   await app.register(cookie, { secret: auth.cookieSecret });
   await app.register(rateLimit, { global: false });
@@ -33,6 +37,8 @@ export async function buildApp(config: Config, db: DatabaseSync, options: AppOpt
   });
   await app.register(adminRoutes(auth), { prefix: '/api/admin' });
   await app.register(authoringRoutes({ auth, quizzes, images, mediaDir: config.mediaDir }), { prefix: '/api/admin' });
+  await app.register(sessionRoutes({ auth, quizzes, sessions, publicUrl: config.publicUrl }), { prefix: '/api/admin' });
+  await app.register(playRoutes(sessions), { prefix: '/api' });
 
   // Uploaded images are public: students' phones load them. File names are
   // random and never reused, so they can be cached forever. The sandboxing CSP

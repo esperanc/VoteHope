@@ -5,8 +5,11 @@ import path from 'node:path';
 export interface Config {
   port: number;
   host: string;
-  /** Base URL students use to reach the server (encoded in QR codes). No trailing slash. */
-  publicUrl: string;
+  /**
+   * Base URL for join links and QR codes, without trailing slash. When unset, links
+   * use the address the presenter's browser is using (fine on a local network).
+   */
+  publicUrl: string | null;
   dataDir: string;
   /** Uploaded images (inside dataDir). */
   mediaDir: string;
@@ -40,7 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const mediaDir = path.join(dataDir, 'media');
   mkdirSync(mediaDir, { recursive: true });
 
-  const publicUrl = (env.PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/+$/, '');
+  const publicUrl = env.PUBLIC_URL ? env.PUBLIC_URL.replace(/\/+$/, '') : null;
 
   return {
     port,
@@ -50,7 +53,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     mediaDir,
     clientDir: path.resolve(import.meta.dirname, '../../dist/client'),
     trustProxy: env.TRUST_PROXY === 'true' || env.TRUST_PROXY === '1',
-    secureCookies: publicUrl.startsWith('https://'),
+    secureCookies: publicUrl?.startsWith('https://') ?? false,
     adminPassword,
     adminPasswordHash,
     sessionSecret: env.SESSION_SECRET || loadOrCreateSecret(dataDir),

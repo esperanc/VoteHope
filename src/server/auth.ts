@@ -84,7 +84,7 @@ export function createAdminAuth(config: Config): AdminAuth {
         signed: true,
         httpOnly: true,
         sameSite: 'lax',
-        secure: config.secureCookies,
+        secure: config.secureCookies || reply.request.protocol === 'https',
         path: '/',
         maxAge: SESSION_MAX_AGE_S,
       });

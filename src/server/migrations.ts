@@ -112,4 +112,14 @@ export const migrations: string[] = [
   );
   CREATE INDEX answers_by_session ON answers(session_id, question_id);
   `,
+
+  // Session codes are never reused, so an old QR code cannot lead to a newer
+  // session. In self-paced sessions each participant tracks their own progress.
+  `
+  DROP INDEX sessions_open_code;
+  CREATE UNIQUE INDEX sessions_code ON sessions(code);
+  ALTER TABLE participants ADD COLUMN current_index INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE participants ADD COLUMN deadline_ms INTEGER;
+  ALTER TABLE participants ADD COLUMN end_reason TEXT CHECK (end_reason IN ('submitted', 'time', 'closed'));
+  `,
 ];

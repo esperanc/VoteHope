@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Question } from '../../../shared/quiz.ts';
   import { t } from '../../lib/i18n.svelte.ts';
+  import { snippet as snippetOf } from '../../lib/text.ts';
   import Icon from '../Icon.svelte';
 
   let {
@@ -19,17 +20,7 @@
   let dragIndex = $state<number | null>(null);
   let overIndex = $state<number | null>(null);
 
-  const IMAGE = /!\[[^\]]*\]\([^)]*\)/g;
-
-  function snippet(question: Question): string {
-    const text = question.body
-      .replace(IMAGE, ' ')
-      .replace(/[*_`#>$\\]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (text) return text;
-    return IMAGE.test(question.body) ? t('editor.imageOnly') : '';
-  }
+  const snippet = (question: Question) => snippetOf(question.body, t('editor.imageOnly'));
 
   function drop(to: number) {
     const from = dragIndex;

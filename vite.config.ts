@@ -21,10 +21,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Keep the browser's Host header: the server builds join links from it.
     proxy: {
-      '/api': api,
-      '/media': api,
-      '/socket.io': { target: api, ws: true },
+      '/api': { target: api, changeOrigin: false },
+      '/media': { target: api, changeOrigin: false },
+      '/socket.io': { target: api, ws: true, changeOrigin: false },
     },
   },
 });
