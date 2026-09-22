@@ -1,8 +1,10 @@
 // Student endpoints. Joining returns a secret token; the student's browser sends
-// it as "Authorization: Bearer <token>" on every later request.
+// it as "Authorization: Bearer <token>" on every later request (for live sessions,
+// in the Socket.IO handshake instead).
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { LIMITS } from '../../shared/quiz.ts';
+import type { LiveEngine } from '../live.ts';
 import { PlayError, type SessionStore } from '../sessions.ts';
 
 const JoinBody = z.object({
@@ -24,7 +26,7 @@ const CODE = /^\d{6}$/;
 // someone hammering the server (e.g. guessing codes).
 const rateLimit = { config: { rateLimit: { max: 300, timeWindow: '1 minute' } } };
 
-export function playRoutes(sessions: SessionStore): FastifyPluginAsync {
+export function playRoutes(sessions: SessionStore, live: LiveEngine): FastifyPluginAsync {
   return async (app) => {
     app.setErrorHandler((error, _request, reply) => {
       if (error instanceof PlayError) return reply.code(error.status).send({ error: error.code });
@@ -38,8 +40,10 @@ export function playRoutes(sessions: SessionStore): FastifyPluginAsync {
       return session;
     }
 
+    /** A self-paced attempt; live sessions are played over Socket.IO instead. */
     function attemptFor(request: FastifyRequest) {
       const session = sessionFor(request);
+      if (session.mode === 'sync') throw new PlayError(409, 'live_session');
       const token = /^Bearer (\S+)$/.exec(request.headers.authorization ?? '')?.[1];
       const participant = token ? sessions.authenticate(session, token) : undefined;
       if (!participant) throw new PlayError(401, 'invalid_token');
@@ -56,7 +60,9 @@ export function playRoutes(sessions: SessionStore): FastifyPluginAsync {
 
     app.post('/join/:code', rateLimit, async (request, reply) => {
       const { name, email } = parse(JoinBody, request.body);
-      const token = sessions.join(sessionFor(request), name, email ?? '', Date.now());
+      const session = sessionFor(request);
+      const token = sessions.join(session, name, email ?? '', Date.now());
+      if (session.mode === 'sync') live.participantsChanged(session.id);
       return reply.code(201).send({ token });
     });
 

@@ -34,7 +34,7 @@
           {#if showEmail}<td>{participant.email ?? ''}</td>{/if}
           <td class="num">{total > 0 ? `${participant.correct} / ${total}` : '–'}</td>
           <td class="num">{participant.answered} / {results.questions.length}</td>
-          <td><span class="status" data-status={participant.status}>{t(attemptLabel(participant))}</span></td>
+          <td><span class="status" data-status={participant.status}>{t(attemptLabel(participant, results.session.mode))}</span></td>
           <td>{participant.submittedAt ? formatDateTime(participant.submittedAt) : ''}</td>
           <td class="actions">
             <button

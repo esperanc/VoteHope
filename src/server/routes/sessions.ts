@@ -2,8 +2,9 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import QRCode from 'qrcode';
 import { z } from 'zod';
 import { findIssues } from '../../shared/quiz.ts';
-import { SESSION_LIMITS, type AsyncSettings } from '../../shared/session.ts';
+import { DEFAULT_ASYNC_SETTINGS, SESSION_LIMITS, type AsyncSettings, type EmailMode } from '../../shared/session.ts';
 import type { AdminAuth } from '../auth.ts';
+import type { LiveEngine } from '../live.ts';
 import type { QuizStore } from '../quizzes.ts';
 import type { Session, SessionStore } from '../sessions.ts';
 
@@ -11,11 +12,13 @@ interface Deps {
   auth: AdminAuth;
   quizzes: QuizStore;
   sessions: SessionStore;
+  live: LiveEngine;
   /** Configured base URL for join links; null means "the address the presenter is using". */
   publicUrl: string | null;
 }
 
 const Timestamp = z.iso.datetime().nullable();
+const Email = z.enum(['hidden', 'optional', 'required']);
 
 function datesInOrder(settings: { opensAt?: string | null; closesAt?: string | null }): boolean {
   return !settings.opensAt || !settings.closesAt || Date.parse(settings.opensAt) < Date.parse(settings.closesAt);
@@ -29,16 +32,17 @@ const AsyncSettingsSchema: z.ZodType<AsyncSettings> = z
     opensAt: Timestamp,
     closesAt: Timestamp,
     showScore: z.boolean(),
-    email: z.enum(['hidden', 'optional', 'required']),
+    email: Email,
   })
   .refine((s) => s.timerMode !== 'total' || s.totalMinutes !== null, 'totalMinutes is required for a total timer')
   .refine(datesInOrder, 'opensAt must be before closesAt');
 
-const CreateSessionBody = z.object({
-  quizId: z.number().int().positive(),
-  mode: z.literal('async'),
-  settings: AsyncSettingsSchema,
-});
+const QuizId = z.number().int().positive();
+
+const CreateSessionBody = z.discriminatedUnion('mode', [
+  z.object({ quizId: QuizId, mode: z.literal('async'), settings: AsyncSettingsSchema }),
+  z.object({ quizId: QuizId, mode: z.literal('sync'), settings: z.object({ email: Email }) }),
+]);
 
 const UpdateSessionBody = z.object({
   opensAt: Timestamp.optional(),
@@ -47,7 +51,12 @@ const UpdateSessionBody = z.object({
   closed: z.boolean().optional(),
 });
 
-export function sessionRoutes({ auth, quizzes, sessions, publicUrl }: Deps): FastifyPluginAsync {
+/** Live sessions follow the presenter: of these settings only the email question applies. */
+function liveSettings(email: EmailMode): AsyncSettings {
+  return { ...DEFAULT_ASYNC_SETTINGS, timerMode: 'perQuestion', shuffleQuestions: false, showScore: false, email };
+}
+
+export function sessionRoutes({ auth, quizzes, sessions, live, publicUrl }: Deps): FastifyPluginAsync {
   return async (app) => {
     app.addHook('preHandler', auth.requireAdmin);
 
@@ -74,7 +83,10 @@ export function sessionRoutes({ auth, quizzes, sessions, publicUrl }: Deps): Fas
       const quiz = quizzes.get(body.data.quizId);
       if (!quiz) return reply.code(404).send({ error: 'not_found' });
       if (findIssues(quiz).length > 0) return reply.code(409).send({ error: 'quiz_incomplete' });
-      const session = sessions.create(quiz, body.data.settings);
+      const session =
+        body.data.mode === 'async'
+          ? sessions.create(quiz, body.data.settings, 'async')
+          : sessions.create(quiz, liveSettings(body.data.settings.email), 'sync');
       return reply.code(201).send(sessions.detail(session, Date.now(), joinBase(request)));
     });
 
@@ -89,9 +101,16 @@ export function sessionRoutes({ auth, quizzes, sessions, publicUrl }: Deps): Fas
       const body = UpdateSessionBody.safeParse(request.body);
       if (!body.success) return reply.code(400).send({ error: 'invalid_request' });
       const { closed, ...changes } = body.data;
-      if (!datesInOrder({ ...session.settings, ...changes })) return reply.code(400).send({ error: 'invalid_request' });
-
       const now = Date.now();
+
+      if (session.mode === 'sync') {
+        // A live session can only be ended (it has no dates, and does not reopen).
+        if (closed !== true) return reply.code(400).send({ error: 'invalid_request' });
+        live.end(session);
+        return sessions.detail(sessions.get(session.id)!, now, joinBase(request));
+      }
+
+      if (!datesInOrder({ ...session.settings, ...changes })) return reply.code(400).send({ error: 'invalid_request' });
       let updated = sessions.update(session, changes);
       if (closed !== undefined) updated = sessions.setClosed(updated, closed, now);
       return sessions.detail(updated, now, joinBase(request));
@@ -101,6 +120,7 @@ export function sessionRoutes({ auth, quizzes, sessions, publicUrl }: Deps): Fas
       const session = load(request, reply);
       if (!session) return reply;
       sessions.remove(session.id);
+      live.sessionDeleted(session.id);
       return reply.code(204).send();
     });
 
@@ -125,6 +145,7 @@ export function sessionRoutes({ auth, quizzes, sessions, publicUrl }: Deps): Fas
       if (!session) return reply;
       const participantId = Number((request.params as { participantId?: string }).participantId);
       if (!sessions.removeParticipant(session, participantId)) return reply.code(404).send({ error: 'not_found' });
+      live.participantRemoved(session.id, participantId);
       return reply.code(204).send();
     });
   };

@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, scrypt, scryptSync, timingSafeEqual } from 'node:crypto';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Config } from './config.ts';
 
 // ---- Password hashing -------------------------------------------------------
@@ -51,6 +51,8 @@ export interface AdminAuth {
   cookieSecret: string;
   verify(password: string): Promise<boolean>;
   isAdmin(request: FastifyRequest): boolean;
+  /** For WebSocket handshakes, which carry only the raw Cookie header. */
+  isAdminCookieHeader(app: FastifyInstance, cookieHeader: string | undefined): boolean;
   startSession(reply: FastifyReply): void;
   endSession(reply: FastifyReply): void;
   requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply | void>;
@@ -66,19 +68,26 @@ export function createAdminAuth(config: Config): AdminAuth {
     config.adminPasswordHash ?? createHash('sha256').update(config.adminPassword!).digest('base64url');
   const cookieSecret = createHmac('sha256', config.sessionSecret).update(passwordFingerprint).digest('base64url');
 
-  function isAdmin(request: FastifyRequest): boolean {
-    const raw = request.cookies[ADMIN_COOKIE];
-    if (!raw) return false;
-    const { valid, value } = request.unsignCookie(raw);
+  function validSession(signed: string | undefined, unsign: (value: string) => { valid: boolean; value: string | null }) {
+    if (!signed) return false;
+    const { valid, value } = unsign(signed);
     if (!valid || value === null) return false;
     const issuedAt = Number(value);
     return Number.isFinite(issuedAt) && Date.now() - issuedAt < SESSION_MAX_AGE_S * 1000;
+  }
+
+  function isAdmin(request: FastifyRequest): boolean {
+    return validSession(request.cookies[ADMIN_COOKIE], (value) => request.unsignCookie(value));
   }
 
   return {
     cookieSecret,
     verify: (password) => verifyPassword(password, storedHash),
     isAdmin,
+    isAdminCookieHeader(app, cookieHeader) {
+      if (!cookieHeader) return false;
+      return validSession(app.parseCookie(cookieHeader)[ADMIN_COOKIE], (value) => app.unsignCookie(value));
+    },
     startSession(reply) {
       reply.setCookie(ADMIN_COOKIE, String(Date.now()), {
         signed: true,

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import type { LivePhase } from '../../../shared/live.ts';
   import type { AsyncSettings, SessionResults } from '../../../shared/session.ts';
   import AdminHeader from '../../components/AdminHeader.svelte';
   import Icon from '../../components/Icon.svelte';
@@ -14,6 +15,13 @@
 
   let { params }: { params: PageParams } = $props();
 
+  const PHASES: Record<LivePhase, MessageKey> = {
+    lobby: 'sessions.phase.lobby',
+    open: 'sessions.phase.running',
+    closed: 'sessions.phase.running',
+    finished: 'sessions.phase.finished',
+  };
+
   let results = $state<SessionResults | null>(null);
   let loadError = $state<MessageKey | null>(null);
   let actionError = $state<MessageKey | null>(null);
@@ -22,6 +30,7 @@
 
   const session = $derived(results?.session);
   const backUrl = $derived(session?.quizId ? `/admin/quizzes/${session.quizId}/sessions` : '/admin/sessions');
+  const isLive = $derived(session?.mode === 'sync');
 
   async function load() {
     try {
@@ -33,7 +42,7 @@
   }
   load();
 
-  // Answers keep arriving in self-paced sessions: refresh while the page is visible.
+  // Answers keep arriving: refresh while the page is visible.
   const refresher = setInterval(() => {
     if (document.visibilityState === 'visible' && !busy) void load();
   }, 10_000);
@@ -72,6 +81,10 @@
     }
   }
 
+  function endLive() {
+    if (confirm(t('sessions.confirmEndLive'))) void patch({ closed: true });
+  }
+
   async function deleteSession() {
     if (!confirm(t('sessions.confirmDelete'))) return;
     const back = backUrl;
@@ -103,15 +116,29 @@
         <h1>{session.title.trim() || t('quiz.untitled')}</h1>
         <p class="meta">
           <StateBadge state={session.state} />
-          <span>{t('sessions.selfPaced')}</span>
+          <span>{isLive ? t('sessions.live') : t('sessions.selfPaced')}</span>
+          {#if isLive && session.livePhase}
+            <span aria-hidden="true">·</span>
+            <span>{t(PHASES[session.livePhase])}</span>
+          {/if}
           <span aria-hidden="true">·</span>
           <span>{t('sessions.created', { date: formatDateTime(session.createdAt) })}</span>
         </p>
       </div>
       <div class="actions">
-        <button type="button" class="btn" disabled={busy} onclick={toggleClosed}>
-          {session.state === 'closed' ? t('sessions.reopen') : t('sessions.close')}
-        </button>
+        {#if isLive}
+          {#if session.livePhase !== 'finished'}
+            <a class="btn btn-primary" href={`/admin/sessions/${params.id}/present`}>
+              <Icon name="play" />
+              {t('sessions.openPresenter')}
+            </a>
+            <button type="button" class="btn" disabled={busy} onclick={endLive}>{t('sessions.close')}</button>
+          {/if}
+        {:else}
+          <button type="button" class="btn" disabled={busy} onclick={toggleClosed}>
+            {session.state === 'closed' ? t('sessions.reopen') : t('sessions.close')}
+          </button>
+        {/if}
         <button type="button" class="icon-btn danger" disabled={busy} title={t('sessions.delete')} aria-label={t('sessions.delete')} onclick={deleteSession}>
           <Icon name="trash" />
         </button>
@@ -153,6 +180,7 @@
 
   .actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.4rem;
   }

@@ -1,5 +1,6 @@
 <script lang="ts">
-  // A session's settings. Only the dates and score visibility can change once it exists.
+  // A session's settings. For self-paced sessions the dates and score visibility
+  // can still change; a live session has nothing to adjust.
   import type { AsyncSettings, EmailMode, SessionDetail } from '../../../shared/session.ts';
   import { fromLocalInput, toLocalInput } from '../../lib/format.ts';
   import { formatDateTime, t, type MessageKey } from '../../lib/i18n.svelte.ts';
@@ -51,12 +52,19 @@
 <section class="card stack">
   <div class="head">
     <h2>{t('sessions.settings')}</h2>
-    {#if !editing}
+    {#if session.mode === 'async' && !editing}
       <button type="button" class="btn" onclick={edit}>{t('sessions.edit')}</button>
     {/if}
   </div>
 
-  {#if editing}
+  {#if session.mode === 'sync'}
+    <dl>
+      <dt>{t('sessions.mode')}</dt>
+      <dd>{t('sessions.live')}</dd>
+      <dt>{t('sessions.email')}</dt>
+      <dd>{t(EMAIL[settings.email])}</dd>
+    </dl>
+  {:else if editing}
     <form class="stack" onsubmit={save}>
       <div>
         <label for="edit-opens">{t('sessions.opensAt')}</label>

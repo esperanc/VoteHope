@@ -6,9 +6,11 @@ import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
+import { Server as SocketServer } from 'socket.io';
 import type { Config } from './config.ts';
 import { createAdminAuth } from './auth.ts';
 import { createImageStore } from './images.ts';
+import { createLiveEngine } from './live.ts';
 import { createQuizStore } from './quizzes.ts';
 import { createSessionStore } from './sessions.ts';
 import { adminRoutes } from './routes/admin.ts';
@@ -26,6 +28,7 @@ export async function buildApp(config: Config, db: DatabaseSync, options: AppOpt
   const quizzes = createQuizStore(db);
   const images = createImageStore(db, config.mediaDir);
   const sessions = createSessionStore(db);
+  const live = createLiveEngine(sessions, (error) => app.log.error(error));
 
   await app.register(cookie, { secret: auth.cookieSecret });
   await app.register(rateLimit, { global: false });
@@ -37,8 +40,19 @@ export async function buildApp(config: Config, db: DatabaseSync, options: AppOpt
   });
   await app.register(adminRoutes(auth), { prefix: '/api/admin' });
   await app.register(authoringRoutes({ auth, quizzes, images, mediaDir: config.mediaDir }), { prefix: '/api/admin' });
-  await app.register(sessionRoutes({ auth, quizzes, sessions, publicUrl: config.publicUrl }), { prefix: '/api/admin' });
-  await app.register(playRoutes(sessions), { prefix: '/api' });
+  await app.register(sessionRoutes({ auth, quizzes, sessions, live, publicUrl: config.publicUrl }), {
+    prefix: '/api/admin',
+  });
+  await app.register(playRoutes(sessions, live), { prefix: '/api' });
+
+  // Live sessions: the presenter screen and the phones stay connected over Socket.IO.
+  const io = new SocketServer(app.server, { serveClient: false });
+  live.attach(io, (cookieHeader) => auth.isAdminCookieHeader(app, cookieHeader));
+  app.addHook('preClose', async () => {
+    live.stop();
+    io.disconnectSockets(true);
+    io.engine.close();
+  });
 
   // Uploaded images are public: students' phones load them. File names are
   // random and never reused, so they can be cached forever. The sandboxing CSP

@@ -1,5 +1,5 @@
 import type { Question } from '../../shared/quiz.ts';
-import type { ParticipantResult, SessionResults } from '../../shared/session.ts';
+import type { ParticipantResult, SessionMode, SessionResults } from '../../shared/session.ts';
 import { toCsv } from './csv.ts';
 import { spreadsheetTime } from './format.ts';
 import type { MessageKey } from './i18n.svelte.ts';
@@ -39,7 +39,8 @@ export function questionStats(question: Question, participants: ParticipantResul
   return stats;
 }
 
-export function attemptLabel(participant: ParticipantResult): MessageKey {
+export function attemptLabel(participant: ParticipantResult, mode: SessionMode = 'async'): MessageKey {
+  if (mode === 'sync') return participant.status === 'finished' ? 'results.status.live' : 'results.status.liveActive';
   if (participant.status === 'ready') return 'results.status.ready';
   if (participant.status === 'in_progress') return 'results.status.in_progress';
   if (participant.endReason === 'time') return 'results.status.time';
@@ -74,7 +75,7 @@ export function resultsCsv(
   const rows = sortedByName(results.participants, locale).map((p) => [
     p.name,
     p.email ?? '',
-    t(attemptLabel(p)),
+    t(attemptLabel(p, results.session.mode)),
     spreadsheetTime(p.startedAt),
     spreadsheetTime(p.submittedAt),
     String(p.correct),

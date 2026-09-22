@@ -20,4 +20,8 @@
   correct options (`StudentQuestion` has no `correct` field; tests check the JSON).
 - Server logic takes `now` as a parameter and routes pass `Date.now()`, so tests can
   freeze time with `vi.spyOn(Date, 'now')`.
+- Live sessions: `src/server/live.ts` runs them over Socket.IO. Their state lives in
+  `sessions.phase / question_index / deadline_ms` (so a restart resumes), and every change
+  pushes complete views to the presenter and to each student (no incremental messages).
+  `test/live.test.ts` uses real sockets against a listening server.
 - Verify with `npm run check && npm test && npm run build`.

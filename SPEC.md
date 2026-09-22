@@ -102,6 +102,9 @@ LOBBY ──start──▶ OPEN(q1) ──deadline or "close now"──▶ CLOSE
   "answered: 23 / 31", **Close now**.
 - Question closed: bar chart of how many chose each option (no correct-answer highlight), **Next** / **End**.
 - Finished: "Quiz finished" + link to results (results page is for the presenter, not projected by default).
+- Keyboard: → or Page Down performs the main action (start, close question, next question),
+  so a presentation clicker can drive the session. The join address stays visible in the top
+  bar during questions for latecomers.
 
 **Student (phone)**
 - Join form → "Waiting for the presenter to start…"

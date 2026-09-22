@@ -1,11 +1,13 @@
 <script lang="ts">
-  // The student's side of a session: join, start, answer, finish.
+  // The student's side of a session: join, then either take a self-paced quiz
+  // or follow a live one.
   import type { JoinInfo, PlayState } from '../../../shared/session.ts';
   import LanguageSwitch from '../../components/LanguageSwitch.svelte';
   import Attempt from '../../components/student/Attempt.svelte';
   import Finished from '../../components/student/Finished.svelte';
   import Intro from '../../components/student/Intro.svelte';
   import JoinForm from '../../components/student/JoinForm.svelte';
+  import Live, { type LeaveReason } from '../../components/student/Live.svelte';
   import { api, ApiError } from '../../lib/api.ts';
   import { t, type MessageKey } from '../../lib/i18n.svelte.ts';
   import { forgetToken, playApi, savedToken, saveToken } from '../../lib/play.ts';
@@ -15,9 +17,12 @@
 
   let info = $state<JoinInfo | null>(null);
   let play = $state<PlayState | null>(null);
-  /** Server clock minus this device's clock. */
+  /** Following a live session (joined, with a token). */
+  let live = $state(false);
+  /** Server clock minus this device's clock (self-paced). */
   let offset = $state(0);
   let error = $state<MessageKey | null>(null);
+  let notice = $state<MessageKey | null>(null);
 
   const code = () => params.code ?? '';
   const errorFor = (err: unknown): MessageKey =>
@@ -29,29 +34,38 @@
   }
 
   async function load() {
-    if (savedToken(code())) {
-      try {
-        show(await playApi('GET', code()));
-        return;
-      } catch (err) {
-        if (!(err instanceof ApiError && err.status === 401)) {
-          error = errorFor(err);
-          return;
-        }
-        forgetToken(code()); // e.g. the presenter deleted this attempt
-      }
-    }
     try {
       info = await api<JoinInfo>('GET', `/api/join/${code()}`);
     } catch (err) {
       error = errorFor(err);
+      return;
+    }
+    if (!savedToken(code())) return;
+    if (info.mode === 'sync') {
+      live = true;
+      return;
+    }
+    try {
+      show(await playApi('GET', code()));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) forgetToken(code()); // e.g. the presenter deleted this attempt
+      else error = errorFor(err);
     }
   }
   load();
 
   async function joined(token: string) {
     saveToken(code(), token);
-    show(await playApi('GET', code()));
+    notice = null;
+    if (info?.mode === 'sync') live = true;
+    else show(await playApi('GET', code()));
+  }
+
+  function left(reason: LeaveReason) {
+    forgetToken(code());
+    live = false;
+    if (reason === 'not_found') error = 'student.notFound';
+    else if (reason === 'removed') notice = 'live.removed';
   }
 </script>
 
@@ -66,6 +80,8 @@
         <p>{t(error)}</p>
         <a href="/">{t('student.backHome')}</a>
       </div>
+    {:else if live}
+      <Live code={code()} onleave={left} />
     {:else if play}
       {#if play.status === 'finished'}
         <Finished {play} />
@@ -75,6 +91,9 @@
         <Intro {play} onstate={show} />
       {/if}
     {:else if info}
+      {#if notice}
+        <p class="notice" role="status">{t(notice)}</p>
+      {/if}
       <JoinForm {info} onjoined={joined} />
     {:else}
       <p class="muted">{t('common.loading')}</p>
@@ -101,5 +120,14 @@
     max-width: 560px;
     margin: 0 auto;
     padding: 0.25rem 1rem 2.5rem;
+  }
+
+  .notice {
+    margin-bottom: 0.9rem;
+    padding: 0.7rem 0.9rem;
+    font-weight: 600;
+    color: var(--warning);
+    background: var(--warning-bg);
+    border-radius: 8px;
   }
 </style>

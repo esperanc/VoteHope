@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
+import type { LivePhase } from '../shared/live.ts';
 import { contentOf, type Question, type Quiz, type QuizContent } from '../shared/quiz.ts';
 import { seededRandom, shuffled } from '../shared/random.ts';
 import {
@@ -35,6 +36,14 @@ export class PlayError extends Error {
   }
 }
 
+/** Where a live session is; null phase for self-paced sessions. */
+export interface LiveState {
+  phase: LivePhase | null;
+  questionIndex: number;
+  /** Server-clock ms when the current question's time runs out. */
+  deadline: number | null;
+}
+
 export interface Session {
   id: number;
   quizId: number | null;
@@ -45,6 +54,7 @@ export interface Session {
   /** The session's own copy of the quiz, taken when it was created. */
   quiz: QuizContent;
   createdAt: string;
+  live: LiveState;
 }
 
 export interface Participant {
@@ -69,6 +79,9 @@ interface SessionRow {
   settings_json: string;
   quiz_snapshot_json: string;
   created_at: string;
+  phase: LivePhase | null;
+  question_index: number | null;
+  deadline_ms: number | null;
 }
 
 interface ParticipantRow {
@@ -105,6 +118,7 @@ function toSession(row: SessionRow): Session {
     settings: JSON.parse(row.settings_json) as AsyncSettings,
     quiz: JSON.parse(row.quiz_snapshot_json) as QuizContent,
     createdAt: row.created_at,
+    live: { phase: row.phase, questionIndex: row.question_index ?? 0, deadline: row.deadline_ms },
   };
 }
 
@@ -146,6 +160,14 @@ export function isCorrect(question: Question, optionIds: string[]): boolean | nu
   return correct.length === optionIds.length && correct.every((id) => optionIds.includes(id));
 }
 
+/** The chosen option ids, deduplicated, if they fit the question. */
+function validOptionIds(question: Question, optionIds: string[]): string[] {
+  const ids = [...new Set(optionIds)];
+  const known = ids.every((id) => question.options.some((option) => option.id === id));
+  if (!known || (question.selection === 'single' && ids.length > 1)) throw new PlayError(400, 'invalid_answer');
+  return ids;
+}
+
 function statusOf(participant: Participant): AttemptStatus {
   if (!participant.startedAt) return 'ready';
   return participant.submittedAt ? 'finished' : 'in_progress';
@@ -156,9 +178,9 @@ export function createSessionStore(db: DatabaseSync) {
     SELECT s.*, COUNT(p.id) AS participants, COUNT(p.submitted_at) AS submitted
     FROM sessions s LEFT JOIN participants p ON p.session_id = s.id AND p.removed = 0`;
   const sql = {
-    insertSession: db.prepare(
-      `INSERT INTO sessions (quiz_id, code, mode, status, settings_json, quiz_snapshot_json) VALUES (?, ?, ?, 'open', ?, ?)`,
-    ),
+    insertSession: db.prepare(`
+      INSERT INTO sessions (quiz_id, code, mode, status, settings_json, quiz_snapshot_json, phase, question_index)
+      VALUES (?, ?, ?, 'open', ?, ?, ?, 0)`),
     codeTaken: db.prepare('SELECT 1 FROM sessions WHERE code = ?'),
     sessionById: db.prepare('SELECT * FROM sessions WHERE id = ?'),
     sessionByCode: db.prepare('SELECT * FROM sessions WHERE code = ?'),
@@ -170,11 +192,19 @@ export function createSessionStore(db: DatabaseSync) {
     updateSettings: db.prepare('UPDATE sessions SET settings_json = ? WHERE id = ?'),
     setStatus: db.prepare('UPDATE sessions SET status = ? WHERE id = ?'),
     deleteSession: db.prepare('DELETE FROM sessions WHERE id = ?'),
+    setLive: db.prepare(
+      'UPDATE sessions SET phase = ?, question_index = ?, deadline_ms = ?, started_at = COALESCE(started_at, ?) WHERE id = ?',
+    ),
+    endLive: db.prepare(
+      `UPDATE sessions SET status = 'closed', phase = 'finished', deadline_ms = NULL, ended_at = ? WHERE id = ?`,
+    ),
+    openLive: db.prepare(`SELECT * FROM sessions WHERE mode = 'sync' AND phase = 'open'`),
 
     insertParticipant: db.prepare(
       'INSERT INTO participants (session_id, name, name_key, email, token_hash) VALUES (?, ?, ?, ?, ?)',
     ),
     participantByToken: db.prepare('SELECT * FROM participants WHERE session_id = ? AND token_hash = ? AND removed = 0'),
+    participantById: db.prepare('SELECT * FROM participants WHERE id = ? AND session_id = ? AND removed = 0'),
     participants: db.prepare('SELECT * FROM participants WHERE session_id = ? AND removed = 0 ORDER BY joined_at, id'),
     unsettled: db.prepare(
       'SELECT * FROM participants WHERE session_id = ? AND started_at IS NOT NULL AND submitted_at IS NULL',
@@ -187,19 +217,30 @@ export function createSessionStore(db: DatabaseSync) {
     ),
     move: db.prepare('UPDATE participants SET current_index = ?, deadline_ms = ? WHERE id = ?'),
     finish: db.prepare('UPDATE participants SET submitted_at = ?, end_reason = ? WHERE id = ? AND submitted_at IS NULL'),
+    finishAll: db.prepare(
+      `UPDATE participants SET submitted_at = ?, end_reason = 'submitted' WHERE session_id = ? AND submitted_at IS NULL`,
+    ),
     deleteParticipant: db.prepare('DELETE FROM participants WHERE id = ? AND session_id = ?'),
 
     answersOf: db.prepare('SELECT * FROM answers WHERE participant_id = ?'),
     answersOfSession: db.prepare('SELECT * FROM answers WHERE session_id = ?'),
+    answersForQuestion: db.prepare(`
+      SELECT a.* FROM answers a JOIN participants p ON p.id = a.participant_id
+      WHERE a.session_id = ? AND a.question_id = ? AND p.removed = 0`),
+    answerOf: db.prepare('SELECT * FROM answers WHERE participant_id = ? AND question_id = ?'),
     upsertAnswer: db.prepare(`
       INSERT INTO answers (session_id, participant_id, question_id, option_ids_json, is_correct, answered_at)
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT (participant_id, question_id) DO UPDATE SET
         option_ids_json = excluded.option_ids_json, is_correct = excluded.is_correct, answered_at = excluded.answered_at`),
+    insertAnswer: db.prepare(`
+      INSERT INTO answers (session_id, participant_id, question_id, option_ids_json, is_correct, answered_at)
+      VALUES (?, ?, ?, ?, ?, ?)`),
     deleteAnswer: db.prepare('DELETE FROM answers WHERE participant_id = ? AND question_id = ?'),
   };
 
   function get(id: number): Session | undefined {
+    if (!Number.isSafeInteger(id)) return undefined;
     const row = sql.sessionById.get(id) as unknown as SessionRow | undefined;
     return row && toSession(row);
   }
@@ -216,7 +257,7 @@ export function createSessionStore(db: DatabaseSync) {
     }
   }
 
-  // ---- Attempt timing -------------------------------------------------------
+  // ---- Attempt timing (self-paced) -------------------------------------------
 
   /** This participant's question order: shuffled if the session says so, the same on every request. */
   function questionOrder(session: Session, participant: Participant): Question[] {
@@ -225,6 +266,7 @@ export function createSessionStore(db: DatabaseSync) {
     return shuffled(questions, seededRandom(`${session.id}:${participant.id}:questions`));
   }
 
+  /** A question as this participant sees it: options in their own order, no correct flags. */
   function studentQuestion(session: Session, participant: Participant, question: Question): StudentQuestion {
     const options = shuffled(question.options, seededRandom(`${session.id}:${participant.id}:${question.id}`));
     return {
@@ -276,6 +318,7 @@ export function createSessionStore(db: DatabaseSync) {
   }
 
   function settleSession(session: Session, now: number): void {
+    if (session.mode === 'sync') return; // live sessions follow the presenter, not per-student clocks
     for (const row of sql.unsettled.all(session.id) as unknown as ParticipantRow[]) {
       settle(session, toParticipant(row), now, false);
     }
@@ -322,6 +365,7 @@ export function createSessionStore(db: DatabaseSync) {
       joinUrl: `${joinBase}/j/${session.code}`,
       questionCount: session.quiz.questions.length,
       closedManually: session.closedManually,
+      livePhase: session.live.phase,
     };
   }
 
@@ -329,6 +373,7 @@ export function createSessionStore(db: DatabaseSync) {
     const { opensAt, closesAt, timerMode, totalMinutes, email } = session.settings;
     return {
       code: session.code,
+      mode: session.mode,
       title: session.quiz.title,
       description: session.quiz.description,
       state: sessionState(session, now),
@@ -351,14 +396,16 @@ export function createSessionStore(db: DatabaseSync) {
     getByCode,
     joinInfo,
     detail,
+    studentQuestion,
 
-    create(quiz: Quiz, settings: AsyncSettings): Session {
+    create(quiz: Quiz, settings: AsyncSettings, mode: SessionMode = 'async'): Session {
       const { lastInsertRowid } = sql.insertSession.run(
         quiz.id,
         newCode(),
-        'async',
+        mode,
         JSON.stringify(settings),
         JSON.stringify(contentOf(quiz)),
+        mode === 'sync' ? 'lobby' : null,
       );
       return get(Number(lastInsertRowid))!;
     },
@@ -413,7 +460,9 @@ export function createSessionStore(db: DatabaseSync) {
 
       const token = randomBytes(24).toString('base64url');
       try {
-        sql.insertParticipant.run(session.id, name, nameKey(name), email, hashToken(token));
+        const { lastInsertRowid } = sql.insertParticipant.run(session.id, name, nameKey(name), email, hashToken(token));
+        // In a live session everyone takes part from the moment they join.
+        if (session.mode === 'sync') sql.start.run(isoTime(now), null, lastInsertRowid);
       } catch (err) {
         if (err instanceof Error && /UNIQUE/.test(err.message)) throw new PlayError(409, 'name_taken');
         throw err;
@@ -472,10 +521,7 @@ export function createSessionStore(db: DatabaseSync) {
       if (session.settings.timerMode === 'perQuestion' && questionOrder(session, p)[p.currentIndex]?.id !== questionId) {
         throw new PlayError(409, 'not_current');
       }
-      const ids = [...new Set(optionIds)];
-      const known = ids.every((id) => question.options.some((option) => option.id === id));
-      if (!known || (question.selection === 'single' && ids.length > 1)) throw new PlayError(400, 'invalid_answer');
-
+      const ids = validOptionIds(question, optionIds);
       if (ids.length === 0) {
         sql.deleteAnswer.run(p.id, questionId);
         return;
@@ -497,6 +543,57 @@ export function createSessionStore(db: DatabaseSync) {
       const p = settle(session, participant, now, true);
       if (!p.startedAt) throw new PlayError(409, 'not_started');
       return p.submittedAt ? p : finish(p, 'submitted', now);
+    },
+
+    // ---- Live sessions ------------------------------------------------------------
+
+    participants(session: Session): Participant[] {
+      return (sql.participants.all(session.id) as unknown as ParticipantRow[]).map(toParticipant);
+    },
+
+    participant(session: Session, participantId: number): Participant | undefined {
+      const row = sql.participantById.get(participantId, session.id) as unknown as ParticipantRow | undefined;
+      return row && toParticipant(row);
+    },
+
+    /** Current participants' answers to one question, by participant id. */
+    answersForQuestion(session: Session, questionId: string): Map<number, string[]> {
+      const rows = sql.answersForQuestion.all(session.id, questionId) as unknown as AnswerRow[];
+      return new Map(rows.map((row) => [row.participant_id, JSON.parse(row.option_ids_json) as string[]]));
+    },
+
+    hasAnswered(participant: Participant, questionId: string): boolean {
+      return sql.answerOf.get(participant.id, questionId) !== undefined;
+    },
+
+    /** Records a live answer; answers are final. */
+    saveLiveAnswer(session: Session, participant: Participant, question: Question, optionIds: string[], now: number): void {
+      const ids = validOptionIds(question, optionIds);
+      if (ids.length === 0) throw new PlayError(400, 'invalid_answer');
+      const correct = isCorrect(question, ids);
+      try {
+        sql.insertAnswer.run(session.id, participant.id, question.id, JSON.stringify(ids), correct === null ? null : correct ? 1 : 0, isoTime(now));
+      } catch (err) {
+        if (err instanceof Error && /UNIQUE/.test(err.message)) throw new PlayError(409, 'already_answered');
+        throw err;
+      }
+    },
+
+    setLive(session: Session, phase: LivePhase, questionIndex: number, deadline: number | null, now: number): Session {
+      sql.setLive.run(phase, questionIndex, deadline, isoTime(now), session.id);
+      return { ...session, live: { phase, questionIndex, deadline } };
+    },
+
+    /** Finishes a live session: it no longer accepts participants, and everyone's attempt is complete. */
+    endLive(session: Session, now: number): Session {
+      sql.finishAll.run(isoTime(now), session.id);
+      sql.endLive.run(isoTime(now), session.id);
+      return { ...session, closedManually: true, live: { ...session.live, phase: 'finished', deadline: null } };
+    },
+
+    /** Live sessions with a question open (to resume their timers after a restart). */
+    liveSessionsWithOpenQuestion(): Session[] {
+      return (sql.openLive.all() as unknown as SessionRow[]).map(toSession);
     },
 
     // ---- Presenter ----------------------------------------------------------------

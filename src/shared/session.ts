@@ -1,4 +1,5 @@
 // Sessions (runs of a quiz), shared by the server and the client.
+import type { LivePhase } from './live.ts';
 import type { Question, QuestionKind, SelectionMode } from './quiz.ts';
 
 export type SessionMode = 'sync' | 'async';
@@ -60,11 +61,14 @@ export interface SessionDetail extends SessionSummary {
   questionCount: number;
   /** Closed by the presenter, as opposed to by its closing time. */
   closedManually: boolean;
+  /** Live sessions only. */
+  livePhase: LivePhase | null;
 }
 
 /** What a student sees before joining. */
 export interface JoinInfo {
   code: string;
+  mode: SessionMode;
   title: string;
   description: string;
   state: SessionState;

@@ -32,6 +32,11 @@ const routes: Route[] = [
   },
   { pattern: /^\/admin\/sessions\/?$/, load: () => import('./pages/admin/Sessions.svelte'), admin: true },
   {
+    pattern: /^\/admin\/sessions\/(?<id>\d+)\/present\/?$/,
+    load: () => import('./pages/admin/Present.svelte'),
+    admin: true,
+  },
+  {
     pattern: /^\/admin\/sessions\/(?<id>\d+)\/?$/,
     load: () => import('./pages/admin/SessionPage.svelte'),
     admin: true,

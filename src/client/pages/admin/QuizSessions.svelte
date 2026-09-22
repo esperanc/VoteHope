@@ -3,6 +3,7 @@
   import type { SessionSummary } from '../../../shared/session.ts';
   import AdminHeader from '../../components/AdminHeader.svelte';
   import Icon from '../../components/Icon.svelte';
+  import LiveSessionForm from '../../components/sessions/LiveSessionForm.svelte';
   import SessionForm from '../../components/sessions/SessionForm.svelte';
   import SessionList from '../../components/sessions/SessionList.svelte';
   import { api, ApiError } from '../../lib/api.ts';
@@ -52,13 +53,22 @@
         {quiz.questions.length === 0 ? t('issue.noQuestions') : tn('sessions.incomplete', incomplete)}
       </p>
     {:else}
-      <section class="card stack">
-        <div>
-          <h2>{t('sessions.new')}</h2>
-          <p class="muted small">{t('sessions.newHint')}</p>
-        </div>
-        <SessionForm quizId={quiz.id} />
-      </section>
+      <div class="kinds">
+        <section class="card stack">
+          <div>
+            <h2>{t('sessions.newLive')}</h2>
+            <p class="muted small">{t('sessions.newLiveHint')}</p>
+          </div>
+          <LiveSessionForm quizId={quiz.id} />
+        </section>
+        <section class="card stack">
+          <div>
+            <h2>{t('sessions.new')}</h2>
+            <p class="muted small">{t('sessions.newHint')}</p>
+          </div>
+          <SessionForm quizId={quiz.id} />
+        </section>
+      </div>
     {/if}
 
     <h2>{t('sessions.ofThisQuiz')}</h2>
@@ -67,3 +77,18 @@
     {/if}
   {/if}
 </main>
+
+<style>
+  .kinds {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    align-items: start;
+    gap: 1rem;
+  }
+
+  @media (max-width: 860px) {
+    .kinds {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
