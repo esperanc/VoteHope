@@ -135,4 +135,16 @@
     font-weight: 600;
     color: var(--text);
   }
+
+  /* The counts are written beside every bar, so nothing is lost if the bars go;
+     in Windows high contrast they need a system color to stay visible at all. */
+  @media (forced-colors: active) {
+    .bar {
+      background: CanvasText;
+    }
+
+    .dim .bar {
+      background: GrayText;
+    }
+  }
 </style>

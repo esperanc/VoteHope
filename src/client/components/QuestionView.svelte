@@ -156,4 +156,26 @@
     flex: 1;
     min-width: 0;
   }
+
+  /* Windows high contrast replaces our colors with the system palette, which would
+     wipe out the fills that show which option is chosen. System colors survive. */
+  @media (forced-colors: active) {
+    .option.selected {
+      outline: 3px solid Highlight;
+      outline-offset: -3px;
+    }
+
+    .selected .mark {
+      border-color: Highlight;
+    }
+
+    .selected .mark::after {
+      background: Highlight;
+    }
+
+    .multiple .selected .mark::after {
+      background: none;
+      border-color: Highlight;
+    }
+  }
 </style>

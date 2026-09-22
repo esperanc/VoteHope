@@ -5,11 +5,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import type { QuizContent } from '../shared/quiz.ts';
-import { MAX_IMAGE_BYTES, MEDIA_FILE, UnsupportedImageError, type ImageStore } from './images.ts';
+import { MAX_IMAGE_BYTES, MEDIA_FILE, MEDIA_URL, UnsupportedImageError, type ImageStore } from './images.ts';
 import { QuizFileSchema } from './schemas.ts';
 
 export const MAX_IMPORT_BYTES = 100 * 1024 * 1024;
-const MEDIA_URL = /\/media\/([A-Za-z0-9_-]{16}\.(?:webp|svg))/g;
 
 export class ImportError extends Error {}
 

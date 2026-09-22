@@ -10,6 +10,9 @@
   let large = $state(false);
   let copied = $state(false);
   let linkInput: HTMLInputElement;
+  let overlay = $state<HTMLButtonElement | undefined>(undefined);
+  /** Where the keyboard goes back to once the large view closes. */
+  let opener: HTMLElement | null = null;
 
   const qrUrl = $derived(`/api/admin/sessions/${session.id}/qr.svg`);
   const unreachable = $derived(/^https?:\/\/(localhost|127\.|\[::1\])/.test(session.joinUrl));
@@ -26,9 +29,26 @@
     setTimeout(() => (copied = false), 2000);
   }
 
-  function onkeydown(event: KeyboardEvent) {
-    if (large && event.key === 'Escape') large = false;
+  function showLarge(event: MouseEvent) {
+    opener = event.currentTarget as HTMLElement;
+    large = true;
   }
+
+  function closeLarge() {
+    large = false;
+    opener?.focus();
+    opener = null;
+  }
+
+  function onkeydown(event: KeyboardEvent) {
+    if (large && event.key === 'Escape') closeLarge();
+  }
+
+  // The large view is itself the button that closes it, so focusing it puts the
+  // keyboard where Enter, Space and Esc all do the expected thing.
+  $effect(() => {
+    if (large) overlay?.focus();
+  });
 </script>
 
 <svelte:window {onkeydown} />
@@ -36,7 +56,7 @@
 <section class="card stack">
   <h2>{t('share.title')}</h2>
   <div class="content">
-    <button type="button" class="qr" title={t('share.showLarge')} onclick={() => (large = true)}>
+    <button type="button" class="qr" title={t('share.showLarge')} onclick={showLarge}>
       <img src={qrUrl} alt={t('share.qrAlt')} />
     </button>
     <div class="details">
@@ -49,7 +69,7 @@
           {copied ? t('share.copied') : t('share.copy')}
         </button>
       </div>
-      <button type="button" class="btn" onclick={() => (large = true)}>
+      <button type="button" class="btn" onclick={showLarge}>
         <Icon name="maximize" size={16} />
         {t('share.showLarge')}
       </button>
@@ -61,7 +81,7 @@
 </section>
 
 {#if large}
-  <button type="button" class="overlay" aria-label={t('share.closeLarge')} onclick={() => (large = false)}>
+  <button type="button" class="overlay" bind:this={overlay} aria-label={t('share.closeLarge')} onclick={closeLarge}>
     <img src={qrUrl} alt="" />
     <span class="big-code">{formatCode(session.code)}</span>
     <span class="big-url">{session.joinUrl}</span>

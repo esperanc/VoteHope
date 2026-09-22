@@ -9,7 +9,7 @@ import fastifyStatic from '@fastify/static';
 import { Server as SocketServer } from 'socket.io';
 import type { Config } from './config.ts';
 import { createAdminAuth } from './auth.ts';
-import { createImageStore } from './images.ts';
+import { createImageStore, SWEEP_INTERVAL_MS } from './images.ts';
 import { createLiveEngine } from './live.ts';
 import { createQuizStore } from './quizzes.ts';
 import { createSessionStore } from './sessions.ts';
@@ -48,7 +48,23 @@ export async function buildApp(config: Config, db: DatabaseSync, options: AppOpt
   // Live sessions: the presenter screen and the phones stay connected over Socket.IO.
   const io = new SocketServer(app.server, { serveClient: false });
   live.attach(io, (cookieHeader) => auth.isAdminCookieHeader(app, cookieHeader));
+
+  // Images nothing refers to any more are cleaned up now and then; recent uploads
+  // are spared, so an image pasted into an unsaved draft survives.
+  function sweepImages(): void {
+    try {
+      const removed = images.sweep(Date.now());
+      if (removed > 0) app.log.info(`Deleted ${removed} unused image(s).`);
+    } catch (err) {
+      app.log.error(err);
+    }
+  }
+  sweepImages();
+  const sweepTimer = setInterval(sweepImages, SWEEP_INTERVAL_MS);
+  sweepTimer.unref(); // never keeps the process alive
+
   app.addHook('preClose', async () => {
+    clearInterval(sweepTimer);
     live.stop();
     io.disconnectSockets(true);
     io.engine.close();

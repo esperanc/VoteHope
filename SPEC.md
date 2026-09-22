@@ -262,7 +262,10 @@ media is served with a sandboxing Content-Security-Policy.
    Tested with the 50-phone simulator and on real phones (iOS Safari + Android Chrome,
    including screen lock mid-question). *Outcome: classroom-ready live sessions.*
 5. **Polish** — README for self-hosters (pt/en), deployment example with HTTPS,
-   accessibility pass, session deletion, small UX fixes.
+   accessibility pass (system colours under `forced-colors`, focus returned when the
+   large QR closes, a named countdown), automatic cleanup of images nothing refers to,
+   session deletion, small UX fixes.
+   *Outcome: someone else can host their own copy working from the README alone.*
 
 ---
 
@@ -278,3 +281,6 @@ media is served with a sandboxing Content-Security-Policy.
 ## 12. Open items
 
 - Where it will be hosted (affects only the deployment docs, not the code).
+- Still untried: real phones in a live session (above all iOS Safari with the screen
+  locking mid-question) and the Docker image, since Docker was not running on the
+  development machine.

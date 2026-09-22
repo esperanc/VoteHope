@@ -305,6 +305,7 @@ const en = {
   'student.saving': 'Saving…',
   'student.saved': 'Answer saved',
   'student.saveRetry': 'Not saved yet — trying again…',
+  'student.timeLeft': 'Time left',
   'student.timeUp': 'Time is up!',
   'student.allDone': 'All done, {name}!',
   'student.submitted': 'Your answers were submitted.',

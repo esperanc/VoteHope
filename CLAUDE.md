@@ -24,4 +24,9 @@
   `sessions.phase / question_index / deadline_ms` (so a restart resumes), and every change
   pushes complete views to the presenter and to each student (no incremental messages).
   `test/live.test.ts` uses real sockets against a listening server.
+- Uploaded images are swept once nothing mentions them any more (`images.sweep(now)`,
+  which scans quiz text and session snapshots). Uploads younger than a day are spared,
+  so an image pasted into a draft that has not been saved yet is never lost.
+- Anything shown only through colour also gets a system-colour rule under
+  `@media (forced-colors: active)`, or a label beside it.
 - Verify with `npm run check && npm test && npm run build`.

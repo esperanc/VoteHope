@@ -312,6 +312,7 @@ const pt: Record<MessageKey, string> = {
   'student.saving': 'Salvando…',
   'student.saved': 'Resposta salva',
   'student.saveRetry': 'Ainda não salva — tentando de novo…',
+  'student.timeLeft': 'Tempo restante',
   'student.timeUp': 'O tempo acabou!',
   'student.allDone': 'Tudo certo, {name}!',
   'student.submitted': 'Suas respostas foram enviadas.',

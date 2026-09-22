@@ -1,17 +1,21 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import type { DatabaseSync } from 'node:sqlite';
 import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { Config } from '../src/server/config.ts';
-import { adminCookies, makeApp, multipartFile } from './helpers.ts';
+import { createImageStore, SWEEP_GRACE_MS } from '../src/server/images.ts';
+import { DEFAULT_ASYNC_SETTINGS } from '../src/shared/session.ts';
+import { adminCookies, makeApp, multipartFile, sampleQuiz } from './helpers.ts';
 
 let app: FastifyInstance;
+let db: DatabaseSync;
 let config: Config;
 let cookies: Record<string, string>;
 
 beforeEach(async () => {
-  ({ app, config } = await makeApp());
+  ({ app, db, config } = await makeApp());
   cookies = await adminCookies(app);
 });
 
@@ -83,5 +87,60 @@ describe('image uploads', () => {
   it('answers missing media with a 404', async () => {
     const response = await app.inject({ method: 'GET', url: '/media/AAAAAAAAAAAAAAAA.webp' });
     expect(response.statusCode).toBe(404);
+  });
+});
+
+describe('sweeping unused images', () => {
+  /** Uploads are spared for a day, so the sweep is normally asked to run tomorrow. */
+  const tomorrow = () => Date.now() + SWEEP_GRACE_MS + 1000;
+  const sweep = (now = tomorrow()) => createImageStore(db, config.mediaDir).sweep(now);
+  const stored = (file: string) => existsSync(path.join(config.mediaDir, file));
+
+  async function uploaded(): Promise<{ url: string; file: string }> {
+    const { url } = (await uploadImage('photo.png', await png(40, 30))).json();
+    return { url, file: path.basename(url) };
+  }
+
+  function quizShowing(url: string) {
+    const content = sampleQuiz();
+    content.questions[0]!.body = `Look at this:\n\n![photo](${url})`;
+    return app.inject({ method: 'POST', url: '/api/admin/quizzes', cookies, payload: content });
+  }
+
+  it('deletes an image nothing refers to', async () => {
+    const { file } = await uploaded();
+    expect(sweep()).toBe(1);
+    expect(stored(file)).toBe(false);
+    expect((await app.inject({ method: 'GET', url: `/media/${file}` })).statusCode).toBe(404);
+  });
+
+  it('keeps an image a quiz still shows', async () => {
+    const { url, file } = await uploaded();
+    await quizShowing(url);
+    expect(sweep()).toBe(0);
+    expect(stored(file)).toBe(true);
+  });
+
+  it('keeps the images of a session whose quiz was deleted', async () => {
+    const { url, file } = await uploaded();
+    const quiz = (await quizShowing(url)).json();
+    const session = await app.inject({
+      method: 'POST',
+      url: '/api/admin/sessions',
+      cookies,
+      payload: { quizId: quiz.id, mode: 'async', settings: DEFAULT_ASYNC_SETTINGS },
+    });
+    expect(session.statusCode).toBe(201);
+    expect((await app.inject({ method: 'DELETE', url: `/api/admin/quizzes/${quiz.id}`, cookies })).statusCode).toBe(204);
+
+    // The session kept a snapshot of the quiz, and its results still show the image.
+    expect(sweep()).toBe(0);
+    expect(stored(file)).toBe(true);
+  });
+
+  it('spares a fresh upload, which may belong to a draft not saved yet', async () => {
+    const { file } = await uploaded();
+    expect(sweep(Date.now())).toBe(0);
+    expect(stored(file)).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import sharp, { type Metadata } from 'sharp';
@@ -11,6 +11,16 @@ const RASTER_FORMATS = new Set(['jpeg', 'png', 'webp', 'gif', 'avif', 'tiff']);
 
 /** Stored images are named <16 url-safe characters>.<webp|svg>. */
 export const MEDIA_FILE = /^[A-Za-z0-9_-]{16}\.(?:webp|svg)$/;
+
+/** An image address as it appears in question text. */
+export const MEDIA_URL = /\/media\/([A-Za-z0-9_-]{16}\.(?:webp|svg))/g;
+
+/**
+ * An image is swept only this long after it was uploaded, so that one pasted into
+ * a quiz that has not been saved yet is never deleted from under the author.
+ */
+export const SWEEP_GRACE_MS = 24 * 60 * 60 * 1000;
+export const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
 export class UnsupportedImageError extends Error {}
 
@@ -83,6 +93,22 @@ export interface StoredImage {
 
 export function createImageStore(db: DatabaseSync, mediaDir: string) {
   const insert = db.prepare('INSERT INTO images (id, filename, mime, width, height) VALUES (?, ?, ?, ?, ?)');
+  const selectAll = db.prepare('SELECT id, filename, created_at FROM images');
+  const deleteOne = db.prepare('DELETE FROM images WHERE id = ?');
+  // Quizzes hold the text being edited; sessions hold the snapshot taken when they
+  // were created, which keeps the images of past sessions alive after a quiz is gone.
+  const selectQuizText = db.prepare(`SELECT description || ' ' || questions_json AS text FROM quizzes`);
+  const selectSessionText = db.prepare('SELECT quiz_snapshot_json AS text FROM sessions');
+
+  /** File names still mentioned by some quiz or session. */
+  function referenced(): Set<string> {
+    const names = new Set<string>();
+    const rows = [...selectQuizText.all(), ...selectSessionText.all()] as unknown as { text: string }[];
+    for (const row of rows) {
+      for (const match of row.text.matchAll(MEDIA_URL)) names.add(match[1]!);
+    }
+    return names;
+  }
 
   return {
     async save(input: Buffer): Promise<StoredImage> {
@@ -92,6 +118,24 @@ export function createImageStore(db: DatabaseSync, mediaDir: string) {
       writeFileSync(path.join(mediaDir, filename), image.data);
       insert.run(id, filename, image.mime, image.width, image.height);
       return { url: `/media/${filename}`, width: image.width, height: image.height };
+    },
+
+    /**
+     * Deletes images that no quiz or session mentions any more — what is left behind
+     * when an image is removed from a question, or a quiz is deleted. Returns how
+     * many went.
+     */
+    sweep(now: number): number {
+      const keep = referenced();
+      let removed = 0;
+      for (const row of selectAll.all() as unknown as { id: string; filename: string; created_at: string }[]) {
+        if (keep.has(row.filename)) continue;
+        if (Date.parse(row.created_at) > now - SWEEP_GRACE_MS) continue;
+        rmSync(path.join(mediaDir, row.filename), { force: true });
+        deleteOne.run(row.id);
+        removed++;
+      }
+      return removed;
     },
   };
 }

@@ -126,10 +126,10 @@
     <div class="card stack center">
       {#if view.answered}
         <span class="icon done" aria-hidden="true"><Icon name="check" size={30} /></span>
-        <h2>{t('live.received')}</h2>
+        <h1>{t('live.received')}</h1>
       {:else}
         <span class="icon late" aria-hidden="true"><Icon name="clock" size={30} /></span>
-        <h2>{t('student.timeUp')}</h2>
+        <h1>{t('student.timeUp')}</h1>
       {/if}
       <p class="muted">{view.phase === 'open' ? t('live.waitingOthers') : t('live.waitingNext')}</p>
     </div>

@@ -2,6 +2,7 @@
   // Time left until a server-clock deadline. `offset` is server time minus this
   // device's time, so a phone with a wrong clock still counts down correctly.
   import { onDestroy } from 'svelte';
+  import { t } from '../../lib/i18n.svelte.ts';
   import Icon from '../Icon.svelte';
 
   let { deadline, offset, onexpire }: { deadline: number; offset: number; onexpire?: () => void } = $props();
@@ -27,7 +28,7 @@
   });
 </script>
 
-<span class="countdown" class:urgent={seconds <= 10} role="timer">
+<span class="countdown" class:urgent={seconds <= 10} role="timer" aria-label={`${t('student.timeLeft')}: ${label}`}>
   <Icon name="clock" size={16} />
   {label}
 </span>
