@@ -66,26 +66,52 @@ questionário. Os alunos vão a `https://seu.dominio` — ou apenas leem o QR co
 
 ## Na rede da escola, sem domínio
 
-Não é preciso domínio nem certificado: qualquer máquina no mesmo Wi-Fi serve.
+Não é preciso domínio nem certificado: qualquer máquina no mesmo Wi-Fi serve, e os
+alunos chegam a ela pelo endereço que ela tem nessa rede. Um único comando faz tudo:
 
 ```bash
 npm install
-npm run build
-ADMIN_PASSWORD='sua senha' HOST=0.0.0.0 npm start
+npm run serve:lan
 ```
 
-Depois abra a página de administração **pelo endereço de rede do computador**, e
-não por `localhost` — por exemplo `http://192.168.1.23:3000/admin`. Os links e os
-QR codes copiam o endereço que você estiver usando, de modo que os celulares na
-mesma rede conseguem abri-los. (Se o link mostrar `localhost`, o VoteHope avisa:
-os celulares não conseguem resolvê-lo.) Para fixar o endereço, use `PUBLIC_URL`:
+Ele descobre o endereço da máquina na rede, compila o front end se isso ainda não
+tiver sido feito, pede uma senha de apresentador na primeira vez — guardando apenas
+o hash, no `.env` — e então mostra o que abrir:
+
+```
+──────────────────────────────────────────────────────────
+  VoteHope is running on this network.
+
+  Students     http://192.168.1.23:3000
+  Presenter    http://192.168.1.23:3000/admin
+──────────────────────────────────────────────────────────
+```
+
+Os links e os QR codes levam esse endereço, de modo que os celulares no Wi-Fi
+conseguem abri-los. O endereço é descoberto de novo a cada início: quando o
+roteador der outro à máquina, basta parar com Ctrl+C e rodar o comando de novo.
+
+Algumas coisas que vale saber sobre esse modo:
+
+- Em HTTP simples tudo funciona, menos a área de transferência do navegador: o
+  botão "Copiar link" passa a apenas selecionar o texto.
+- A máquina precisa ficar ligada e na mesma rede durante toda a sessão.
+- Redes de escola às vezes impedem que os aparelhos conversem entre si ("isolamento
+  de clientes"). Se os celulares não abrem o endereço mas o navegador do
+  apresentador abre, normalmente é isso; usar o celular como roteador resolve na hora.
+
+Para fazer à mão — com endereço fixo, ou com um nome do DNS da própria escola —
+defina `PUBLIC_URL` e sirva o front end já compilado:
 
 ```bash
+npm run build
 PUBLIC_URL=http://192.168.1.23:3000 ADMIN_PASSWORD='sua senha' HOST=0.0.0.0 npm start
 ```
 
-Em HTTP simples tudo funciona, menos a área de transferência do navegador: o botão
-"Copiar link" passa a apenas selecionar o texto.
+Abrir a página de administração pelo endereço de rede da máquina, e não por
+`localhost`, já basta mesmo sem `PUBLIC_URL`: os links copiam o endereço que você
+estiver usando. Se algum deles mostrar `localhost`, o VoteHope avisa, já que os
+celulares não conseguem resolvê-lo.
 
 ## A senha do apresentador
 

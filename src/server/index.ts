@@ -2,6 +2,7 @@ import path from 'node:path';
 import { buildApp } from './app.ts';
 import { ConfigError, loadConfig, type Config } from './config.ts';
 import { openDatabase } from './db.ts';
+import { lanAddress } from './net.ts';
 
 let config: Config;
 try {
@@ -24,7 +25,16 @@ const app = await buildApp(config, db, {
 });
 
 await app.listen({ port: config.port, host: config.host });
-if (config.publicUrl) app.log.info(`Students join at ${config.publicUrl}`);
+
+// Where to send the students. With no PUBLIC_URL set, the address this machine has
+// on the network is the best guess — and the one join links will carry if the
+// presenter opens the admin page through it.
+let joinAt = config.publicUrl;
+if (!joinAt && config.host === '0.0.0.0') {
+  const address = await lanAddress();
+  if (address) joinAt = `http://${address}:${config.port}`;
+}
+if (joinAt) app.log.info(`Students join at ${joinAt}`);
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, async () => {

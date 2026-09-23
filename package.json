@@ -13,6 +13,7 @@
     "dev:client": "vite",
     "build": "vite build",
     "start": "node --env-file-if-exists=.env src/server/index.ts",
+    "serve:lan": "node src/server/tools/serve-lan.ts",
     "check": "tsc -p tsconfig.json && svelte-check --tsconfig ./tsconfig.json --threshold warning",
     "test": "vitest run",
     "hash-password": "node src/server/tools/hash-password.ts"

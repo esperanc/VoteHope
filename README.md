@@ -63,26 +63,54 @@ quiz. Students go to `https://your.domain` — or simply scan the QR code.
 
 ## On a classroom network, without a domain
 
-You do not need a domain or a certificate: any machine on the same Wi-Fi works.
+You need no domain and no certificate: any machine on the same Wi-Fi will do, and
+students reach it by its address on that network. One command does the whole thing:
 
 ```bash
 npm install
-npm run build
-ADMIN_PASSWORD='your password' HOST=0.0.0.0 npm start
+npm run serve:lan
 ```
 
-Then open the admin page **through the computer's network address**, not through
-`localhost` — for example `http://192.168.1.23:3000/admin`. Join links and QR
-codes copy whatever address you are using, so phones on the same network can open
-them. (If the join link shows `localhost`, VoteHope warns you: phones cannot
-resolve it.) To fix the address once and for all, set `PUBLIC_URL`:
+It works out this machine's address on the network, builds the front end if that
+has not been done yet, asks for a presenter password the first time — storing only
+its hash, in `.env` — and then prints what to open:
+
+```
+──────────────────────────────────────────────────────────
+  VoteHope is running on this network.
+
+  Students     http://192.168.1.23:3000
+  Presenter    http://192.168.1.23:3000/admin
+──────────────────────────────────────────────────────────
+```
+
+Join links and QR codes carry that address, so the phones on the Wi-Fi can open
+them. The address is worked out again at every start, so when the router hands
+this machine a different one, stopping with Ctrl+C and running the command again
+is all it takes.
+
+A few things worth knowing about this mode:
+
+- Everything works over plain HTTP except the browser's clipboard API, so "Copy
+  link" falls back to selecting the text.
+- The machine has to stay awake and on the same network for the whole session.
+- School networks sometimes keep devices from talking to each other ("client
+  isolation" or "AP isolation"). If phones cannot open the address while the
+  presenter's own browser can, that is usually why; a phone hotspot is the quick
+  way around it.
+
+To do it by hand instead — for a fixed address, or a name from the school's own
+DNS — set `PUBLIC_URL` yourself and serve the built front end:
 
 ```bash
+npm run build
 PUBLIC_URL=http://192.168.1.23:3000 ADMIN_PASSWORD='your password' HOST=0.0.0.0 npm start
 ```
 
-Over plain HTTP everything works except the browser's clipboard API, so "Copy
-link" falls back to selecting the text.
+Opening the admin page through the machine's network address rather than
+`localhost` is enough even without `PUBLIC_URL`: join links copy whatever address
+you are using. If one ever shows `localhost`, VoteHope warns you, since phones
+cannot resolve it.
 
 ## The presenter password
 

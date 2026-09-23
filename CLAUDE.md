@@ -29,4 +29,9 @@
   so an image pasted into a draft that has not been saved yet is never lost.
 - Anything shown only through colour also gets a system-colour rule under
   `@media (forced-colors: active)`, or a label beside it.
+- Command-line helpers live in `src/server/tools/` and run through npm scripts.
+  `serve:lan` starts the server for a local network with no domain: it finds this
+  machine's address with `src/server/net.ts` at every start (the routing table, not
+  the interface list, so a VPN or container address is not picked), loads `.env`
+  itself and asks for anything missing.
 - Verify with `npm run check && npm test && npm run build`.
