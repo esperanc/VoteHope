@@ -94,10 +94,15 @@ A few things worth knowing about this mode:
 - Everything works over plain HTTP except the browser's clipboard API, so "Copy
   link" falls back to selecting the text.
 - The machine has to stay awake and on the same network for the whole session.
-- School networks sometimes keep devices from talking to each other ("client
-  isolation" or "AP isolation"). If phones cannot open the address while the
-  presenter's own browser can, that is usually why; a phone hotspot is the quick
-  way around it.
+- The first time, macOS asks whether "node" may accept incoming network
+  connections, and it has to be allowed. Refused, phones cannot connect while the
+  presenter's own browser — which never leaves the machine — works perfectly, so
+  everything looks fine from the front of the room. To undo a refusal: System
+  Settings → Network → Firewall → Options. On Linux, open the port the usual way
+  (`sudo ufw allow 3000`).
+- The same symptom — phones cannot connect, this machine can — also comes from
+  school networks that keep devices from talking to each other ("client isolation"
+  or "AP isolation"). A phone hotspot is the quick way around that one.
 
 To do it by hand instead — for a fixed address, or a name from the school's own
 DNS — set `PUBLIC_URL` yourself and serve the built front end:

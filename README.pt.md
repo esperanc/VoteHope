@@ -96,9 +96,15 @@ Algumas coisas que vale saber sobre esse modo:
 - Em HTTP simples tudo funciona, menos a área de transferência do navegador: o
   botão "Copiar link" passa a apenas selecionar o texto.
 - A máquina precisa ficar ligada e na mesma rede durante toda a sessão.
-- Redes de escola às vezes impedem que os aparelhos conversem entre si ("isolamento
-  de clientes"). Se os celulares não abrem o endereço mas o navegador do
-  apresentador abre, normalmente é isso; usar o celular como roteador resolve na hora.
+- Na primeira vez, o macOS pergunta se o "node" pode aceitar conexões de rede, e é
+  preciso permitir. Se for negado, os celulares não conseguem conectar enquanto o
+  navegador do próprio apresentador — que não sai da máquina — funciona
+  perfeitamente, de modo que tudo parece certo visto da frente da sala. Para
+  desfazer: Ajustes do Sistema → Rede → Firewall → Opções. No Linux, abra a porta
+  como de costume (`sudo ufw allow 3000`).
+- O mesmo sintoma — os celulares não conectam, esta máquina sim — também aparece em
+  redes de escola que impedem os aparelhos de conversarem entre si ("isolamento de
+  clientes"). Nesse caso, usar o celular como roteador resolve na hora.
 
 Para fazer à mão — com endereço fixo, ou com um nome do DNS da própria escola —
 defina `PUBLIC_URL` e sirva o front end já compilado:
