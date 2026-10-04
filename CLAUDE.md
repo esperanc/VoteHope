@@ -34,8 +34,10 @@
   machine's address with `src/server/net.ts` at every start (the routing table, not
   the interface list, so a VPN or container address is not picked), loads `.env`
   itself and asks for anything missing.
-- Quiz files (`src/server/transfer.ts`): import is lenient (`ImportedQuizSchema`) and
-  refuses a broken file with `ImportProblem`s saying where each problem is. Every
-  `json` code block in the READMEs must be a quiz that imports ready to run — a test
-  imports them all.
+- Quiz files (`src/server/transfer.ts`): quiz.md (read by `markdownQuiz.ts`, which turns
+  it into the shape of a quiz.json) or quiz.json; import is lenient
+  (`ImportedQuizSchema`) and refuses a broken file with `ImportProblem`s saying where
+  each problem is. `markdown-it` is a runtime dependency because the server parses
+  these files. Every `markdown` and `json` code block in the READMEs must be a quiz that
+  imports ready to run — a test imports them all.
 - Verify with `npm run check && npm test && npm run build`.

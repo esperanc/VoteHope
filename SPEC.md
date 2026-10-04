@@ -195,10 +195,13 @@ Per session (admin only):
 - "Preview as student" (phone-sized) for a whole quiz.
 - **Import / export a quiz as a single file** (JSON + images in a zip): backup, sharing
   quizzes between VoteHope installations, and quizzes written by hand or by a script.
-  Import fills in what has an obvious default (ids, `correct`, `selection`), takes
-  images under their own names, and refuses a broken file with every problem and its
-  place listed — including LaTeX commands whose single backslash JSON read as an
-  escape. The format is documented in the README.
+  Two formats: **Markdown** for writing by hand (`#` title, a `##` heading per question,
+  options as `- [x]` / `- [ ]`, plain items for polls, `{time=20 multiple}` settings;
+  formulas keep single backslashes) and **JSON** for scripts and exports. Import fills
+  in what has an obvious default (ids, `correct`, `selection`), takes images under their
+  own names, and refuses a broken file with every problem and its place listed — the
+  line in Markdown, the field in JSON, including LaTeX commands whose single backslash
+  JSON read as an escape. The formats are documented in the README.
 
 ---
 

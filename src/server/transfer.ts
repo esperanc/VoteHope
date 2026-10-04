@@ -1,7 +1,8 @@
-// Quiz files: a zip with quiz.json plus the images it uses (media/<file>), or a bare
-// quiz.json. They carry backups and move quizzes between installations, and they are
-// also how quizzes written by hand or by a script come in — so the import fills in
-// whatever has an obvious default, and says precisely what is wrong when it refuses.
+// Quiz files: a quiz.md or quiz.json, on its own or in a zip with the images it uses
+// (media/<file>). They carry backups and move quizzes between installations, and they
+// are also how quizzes written by hand or by a script come in — so the import fills
+// in whatever has an obvious default, and says precisely what is wrong when it
+// refuses. The Markdown format is read by markdownQuiz.ts.
 
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -9,6 +10,7 @@ import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import { makeId, type QuizContent } from '../shared/quiz.ts';
 import type { ImportProblem, ProblemPath } from '../shared/transfer.ts';
 import { MAX_IMAGE_BYTES, MEDIA_URL, UnsupportedImageError, type ImageStore } from './images.ts';
+import { parseMarkdownQuiz } from './markdownQuiz.ts';
 import { ImportedQuizSchema, type ImportedQuiz } from './schemas.ts';
 
 export const MAX_IMPORT_BYTES = 100 * 1024 * 1024;
@@ -21,11 +23,11 @@ const MEDIA_ENTRY = new RegExp(`^${IMAGE_NAME}$`, 'i');
 const IMAGE_REF = new RegExp(String.raw`(\]\(\s*)(?:\.?/)?media/(${IMAGE_NAME})`, 'gi');
 
 /**
- * What a LaTeX command written with one backslash turns into: JSON reads \t, \f, \b,
- * \r and \n as escapes, so "\theta" arrives as a tab followed by "heta". Form feeds
- * and backspaces never belong in quiz text; tabs and carriage returns count when a
- * letter follows (\times, \rho); line breaks only before a few commands that could
- * not begin a line of ordinary text (\neq, \nabla, \nu, \not).
+ * What a LaTeX command written with one backslash turns into in JSON, which reads \t,
+ * \f, \b, \r and \n as escapes: "\theta" arrives as a tab followed by "heta". Form
+ * feeds and backspaces never belong in quiz text; tabs and carriage returns count
+ * when a letter follows (\times, \rho); line breaks only before a few commands that
+ * could not begin a line of ordinary text (\neq, \nabla, \nu, \not).
  */
 const LOST_BACKSLASH = /([\f\b]|[\t\r](?=[A-Za-z]))([A-Za-z]*)|\n(eq|abla|u|ot)(?![A-Za-z])/;
 const ESCAPE_LETTER: Record<string, string> = { '\t': 't', '\f': 'f', '\b': 'b', '\r': 'r' };
@@ -37,6 +39,13 @@ export class ImportError extends Error {
     super('The quiz file has problems');
     this.problems = problems.slice(0, MAX_PROBLEMS);
   }
+}
+
+interface QuizSource {
+  text: string;
+  /** Whether the text is Markdown; unknown for a file uploaded on its own. */
+  markdown: boolean | undefined;
+  media: Map<string, Uint8Array>;
 }
 
 export function exportQuiz(content: QuizContent, mediaDir: string): Uint8Array {
@@ -55,8 +64,8 @@ export function exportQuiz(content: QuizContent, mediaDir: string): Uint8Array {
  * Throws ImportError listing everything wrong with the file.
  */
 export async function importQuiz(file: Uint8Array, images: ImageStore): Promise<QuizContent> {
-  const { json, media } = readArchive(file);
-  const content = normalize(parseQuiz(json));
+  const { text, markdown, media } = readArchive(file);
+  const content = normalize(parseQuiz(text, markdown));
 
   // What can be checked without storing anything comes first, so that a file with
   // mistakes leaves no images behind.
@@ -89,12 +98,13 @@ export async function importQuiz(file: Uint8Array, images: ImageStore): Promise<
   );
 }
 
-function readArchive(file: Uint8Array): { json: string; media: Map<string, Uint8Array> } {
+function readArchive(file: Uint8Array): QuizSource {
   const isZip = file[0] === 0x50 && file[1] === 0x4b; // "PK"
-  if (!isZip) return { json: strFromU8(file), media: new Map() };
+  if (!isZip) return { text: strFromU8(file), markdown: undefined, media: new Map() };
 
-  // A first pass reads only the names: quiz.json may be at the top, or inside the one
-  // folder that compressing a folder in Finder or Explorer produces.
+  // A first pass reads only the names. The quiz is quiz.json or quiz.md, or else the
+  // only Markdown file — at the top, or inside the one folder that compressing a
+  // folder in Finder or Explorer produces.
   const names: string[] = [];
   try {
     unzipSync(file, {
@@ -106,9 +116,14 @@ function readArchive(file: Uint8Array): { json: string; media: Map<string, Uint8
   } catch {
     throw new ImportError([{ code: 'bad_zip' }]);
   }
-  const quizJson = names.find((name) => !name.startsWith('__MACOSX/') && /^(?:[^/]+\/)?quiz\.json$/.test(name));
-  if (!quizJson) throw new ImportError([{ code: 'no_quiz_json' }]);
-  const mediaPrefix = `${quizJson.slice(0, -'quiz.json'.length)}media/`;
+  const candidates = names.filter((name) => !name.startsWith('__MACOSX/') && /^(?:[^/]+\/)?[^/]+$/.test(name));
+  const markdownFiles = candidates.filter((name) => /\.md$/i.test(name));
+  const quizFile =
+    candidates.find((name) => /(?:^|\/)quiz\.json$/.test(name)) ??
+    markdownFiles.find((name) => /(?:^|\/)quiz\.md$/i.test(name)) ??
+    (markdownFiles.length === 1 ? markdownFiles[0] : undefined);
+  if (!quizFile) throw new ImportError([{ code: 'no_quiz_file' }]);
+  const mediaPrefix = `${quizFile.slice(0, quizFile.lastIndexOf('/') + 1)}media/`;
 
   const problems: ImportProblem[] = [];
   let total = 0;
@@ -117,7 +132,7 @@ function readArchive(file: Uint8Array): { json: string; media: Map<string, Uint8
     entries = unzipSync(file, {
       filter(entry) {
         const isImage = entry.name.startsWith(mediaPrefix) && MEDIA_ENTRY.test(entry.name.slice(mediaPrefix.length));
-        if (entry.name !== quizJson && !isImage) return false;
+        if (entry.name !== quizFile && !isImage) return false;
         total += entry.originalSize;
         if ((isImage && entry.originalSize > MAX_IMAGE_BYTES) || total > MAX_IMPORT_BYTES) {
           problems.push({ code: 'too_large', name: entry.name });
@@ -133,13 +148,33 @@ function readArchive(file: Uint8Array): { json: string; media: Map<string, Uint8
 
   const media = new Map<string, Uint8Array>();
   for (const [name, data] of Object.entries(entries)) {
-    if (name !== quizJson) media.set(name.slice(mediaPrefix.length), data);
+    if (name !== quizFile) media.set(name.slice(mediaPrefix.length), data);
   }
-  return { json: strFromU8(entries[quizJson]!), media };
+  return { text: strFromU8(entries[quizFile]!), markdown: /\.md$/i.test(quizFile), media };
 }
 
-function parseQuiz(json: string): ImportedQuiz {
-  const text = json.replace(/^﻿/, ''); // a byte-order mark, as some Windows editors write
+function parseQuiz(raw: string, markdown: boolean | undefined): ImportedQuiz {
+  if (raw.includes('\u0000')) throw new ImportError([{ code: 'not_a_quiz' }]); // binary, not text
+  // Bytes that are not UTF-8 decode to U+FFFD: usually a file saved as Windows-1252.
+  if (raw.includes('�')) throw new ImportError([{ code: 'encoding' }]);
+  // A byte-order mark, as some Windows editors write, and Windows line endings.
+  const text = raw.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+
+  const isMarkdown = markdown ?? !text.trimStart().startsWith('{');
+  const { quiz, problems } = isMarkdown ? fromMarkdown(text) : fromJson(text);
+
+  const parsed = ImportedQuizSchema.safeParse(quiz);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const path = issue.path.map((key) => (typeof key === 'symbol' ? String(key) : key));
+      problems.push({ code: 'field', path, message: issue.message });
+    }
+  }
+  if (!parsed.success || problems.length > 0) throw new ImportError(problems);
+  return parsed.data;
+}
+
+function fromJson(text: string): { quiz: unknown; problems: ImportProblem[] } {
   if (!text.trimStart().startsWith('{')) throw new ImportError([{ code: 'not_a_quiz' }]);
   let document: Record<string, unknown>;
   try {
@@ -156,24 +191,22 @@ function parseQuiz(json: string): ImportedQuiz {
     }
     quiz = document.quiz;
   }
-
   // Lost backslashes are looked for in every string of the raw file, so they are
   // reported together with any other mistake rather than only once those are fixed.
-  const problems = lostBackslashes(quiz);
-  const parsed = ImportedQuizSchema.safeParse(quiz);
-  if (!parsed.success) {
-    for (const issue of parsed.error.issues) {
-      const path = issue.path.map((key) => (typeof key === 'symbol' ? String(key) : key));
-      problems.push({ code: 'field', path, message: issue.message });
-    }
-  }
-  if (!parsed.success || problems.length > 0) throw new ImportError(problems);
-  return parsed.data;
+  return { quiz, problems: lostBackslashes(quiz) };
+}
+
+function fromMarkdown(text: string): { quiz: unknown; problems: ImportProblem[] } {
+  const result = parseMarkdownQuiz(text);
+  if (!result) throw new ImportError([{ code: 'not_a_quiz' }]); // no headings at all
+  // When the structure was misread, the field checks would only add noise.
+  if (result.problems.length > 0) throw new ImportError(result.problems);
+  return { quiz: result.quiz, problems: [] };
 }
 
 /** Fills in what a file may leave out: ids, and whether students pick one option or more. */
 function normalize(quiz: ImportedQuiz): QuizContent {
-  // Windows line endings would otherwise look like lost backslashes.
+  // A JSON string can spell a Windows line break as "\r\n"; the editor uses "\n".
   const text = (value: string) => value.replace(/\r\n/g, '\n');
   const questionIds = new Set(quiz.questions.flatMap((question) => (question.id ? [question.id] : [])));
   return {
@@ -206,7 +239,7 @@ function unusedId(taken: Set<string>): string {
   return id;
 }
 
-/** Strings anywhere in the file in which JSON swallowed a LaTeX command's backslash. */
+/** Strings anywhere in a JSON file in which a LaTeX command's backslash was swallowed. */
 function lostBackslashes(value: unknown, path: ProblemPath = [], problems: ImportProblem[] = []): ImportProblem[] {
   if (typeof value === 'string') {
     const match = LOST_BACKSLASH.exec(value);

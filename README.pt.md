@@ -179,13 +179,67 @@ imagens enviadas em `media/` e o `session-secret`.
 
 ## Escrevendo questionários sem o editor
 
-Um questionário também pode ser escrito como arquivo — à mão, ou por um script que
-transforme material já existente em perguntas — e trazido com **Importar**, na lista
-de questionários. Ele então abre no editor, que aponta o que ainda estiver incompleto
-(uma alternativa faltando, nenhuma resposta certa marcada) antes que possa ser aplicado.
+Um questionário também pode ser escrito como arquivo de texto — à mão, ou por um
+script que transforme material já existente em perguntas — e trazido com **Importar**,
+na lista de questionários. Ele então abre no editor, que aponta o que ainda estiver
+incompleto (uma alternativa faltando, nenhuma resposta certa marcada) antes que possa
+ser aplicado.
 
-Um arquivo de questionário é um `quiz.json`, sozinho ou num zip junto com as imagens.
-Só o título, as perguntas e suas alternativas são obrigatórios:
+Dois formatos são aceitos: **Markdown**, o mais fácil de escrever à mão, e **JSON**,
+prático para scripts. Qualquer um pode ser importado sozinho ou num zip junto com as
+imagens. Salve o arquivo em UTF-8, o padrão da maioria dos editores.
+
+### Markdown
+
+```markdown
+# Derivadas: aquecimento {tempo=45}
+
+Algumas perguntas para começar a aula.
+
+## Qual é a derivada de $x^2$?
+
+- [ ] $x$
+- [x] $2x$
+- [ ] $\frac{x^3}{3}$
+
+## Quais funções são contínuas em todos os números reais?
+
+- [x] $\sin x$
+- [x] $|x|$
+- [ ] $\frac{1}{x}$
+
+## Quão seguro você se sente com a regra da cadeia? {tempo=20}
+
+- Muito
+- Mais ou menos
+- Ainda não
+```
+
+- O arquivo começa com o título do questionário, depois de `#`. O texto entre ele e a
+  primeira pergunta é a descrição do questionário.
+- Cada pergunta começa com `##`. O título é a pergunta, e o que vier entre ele e as
+  alternativas — mais texto, fórmulas, uma imagem — é acrescentado abaixo dele. Um
+  `##` sozinho começa uma pergunta com o que vem depois dele, uma figura, por exemplo.
+- As alternativas são a lista que termina a pergunta: `- [x]` marca uma alternativa
+  correta e `- [ ]` uma errada. Com mais de uma correta, o aluno pode escolher várias.
+- Alternativas sem caixa, como `- Muito`, fazem da pergunta uma **enquete**: não há
+  resposta certa, e só se mostra quantos escolheram cada alternativa.
+- As fórmulas vão entre `$…$` ou `$$…$$`, como no editor, com uma barra só:
+  `$\frac{1}{2}$`.
+- As configurações vão entre chaves no fim de um título. `{tempo=20}` dá a uma pergunta
+  um tempo próprio, em segundos, de 5 a 600; no título `#`, define o tempo de todas as
+  perguntas, que senão é 30. `{múltipla}` deixa o aluno escolher mais de uma
+  alternativa mesmo quando só uma é correta, ou numa enquete. Dá para combinar:
+  `{tempo=20 múltipla}`.
+- Linhas com `---` entre as perguntas são ignoradas, assim como `<!-- comentários -->`.
+
+Se o próprio enunciado terminar com uma lista, marque essa lista com `*` e as
+alternativas com `-`: duas listas seguidas com o mesmo marcador são lidas como uma só.
+
+### JSON
+
+O mesmo tipo de questionário, para scripts. Só o título, as perguntas e suas
+alternativas são obrigatórios:
 
 ```json
 {
@@ -197,14 +251,6 @@ Só o título, as perguntas e suas alternativas são obrigatórios:
         { "body": "$x$" },
         { "body": "$2x$", "correct": true },
         { "body": "$\\frac{x^3}{3}$" }
-      ]
-    },
-    {
-      "body": "Quais funções são contínuas em todos os números reais?",
-      "options": [
-        { "body": "$\\sin x$", "correct": true },
-        { "body": "$|x|$", "correct": true },
-        { "body": "$\\frac{1}{x}$" }
       ]
     },
     {
@@ -226,8 +272,6 @@ Só o título, as perguntas e suas alternativas são obrigatórios:
 `\sin`), enquanto outros viram, sem aviso, caracteres invisíveis (`\frac`, `\theta`,
 `\times`, `\nabla`). A importação pega os casos comuns e diz onde estão. Uma quebra de
 linha dentro de um texto é escrita `\n`.
-
-### Campos
 
 **Questionário**
 
@@ -259,36 +303,36 @@ Perguntas e alternativas também podem ter um `id`; quando falta, um é criado.
 
 ### Imagens
 
-Coloque as imagens numa pasta `media` ao lado do `quiz.json`, mostre-as com
-`![descrição](media/grafico.png)` e junte os dois num zip:
+Coloque as imagens numa pasta `media` ao lado do arquivo do questionário, mostre-as com
+`![descrição](media/grafico.png)` e junte tudo num zip:
 
 ```
 derivadas/
-├── quiz.json
+├── quiz.md
 └── media/
     ├── grafico.png
     └── circuito.svg
 ```
 
 ```bash
-cd derivadas && zip -r ../derivadas.zip quiz.json media
+cd derivadas && zip -r ../derivadas.zip quiz.md media
 ```
 
-Comprimir a pasta pelo Finder ou pelo Explorador do Windows também funciona. São
-aceitas imagens PNG, JPEG, WebP, GIF e SVG de até 15 MB, tratadas como as adicionadas
-no editor: fotos são reduzidas e perdem os metadados.
+Num zip, o questionário é o `quiz.md` ou o `quiz.json`, ou então o único arquivo `.md`
+que houver. Comprimir a pasta pelo Finder ou pelo Explorador do Windows também
+funciona. São aceitas imagens PNG, JPEG, WebP, GIF e SVG de até 15 MB, tratadas como as
+adicionadas no editor: fotos são reduzidas e perdem os metadados.
 
 ### Quando algo está errado
 
-A importação lista cada problema que encontrar, com o lugar onde está — por exemplo
-`Pergunta 3 › alternativa 2 › correct: Invalid input: expected boolean, received string`.
-Um arquivo com problemas não é importado; um questionário apenas incompleto é
-importado, e o editor mostra o que falta.
+A importação lista cada problema que encontrar e onde ele está: a linha, num arquivo
+Markdown (`Linha 12: texto depois das alternativas…`), ou a pergunta e o campo, num
+JSON (`Pergunta 3 › alternativa 2 › correct: …`). Um arquivo com problemas não é
+importado; um questionário apenas incompleto é importado, e o editor mostra o que falta.
 
-**Exportar**, na lista de questionários, gera o mesmo formato, com todos os `id`
-preenchidos e o questionário envolvido em `{"format": "votehope-quiz", "version": 1, "quiz": …}`.
-As duas formas podem ser importadas, então um questionário exportado também é um bom
-ponto de partida para escrever outros.
+**Exportar**, na lista de questionários, gera um zip no formato JSON, com todos os `id`
+preenchidos e o questionário envolvido em
+`{"format": "votehope-quiz", "version": 1, "quiz": …}`, que também pode ser importado.
 
 ## Desenvolvimento
 

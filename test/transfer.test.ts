@@ -104,7 +104,8 @@ describe('quiz export and import', () => {
       [strToU8('not a quiz'), 'not_a_quiz'],
       [strToU8('[1, 2]'), 'not_a_quiz'],
       [json({ format: 'something-else', version: 1, quiz: sampleQuiz() }), 'not_a_quiz'],
-      [zipSync({ 'readme.txt': strToU8('hello') }), 'no_quiz_json'],
+      [zipSync({ 'readme.txt': strToU8('hello') }), 'no_quiz_file'],
+      [zipSync({ 'a.md': strToU8('# A'), 'b.md': strToU8('# B') }), 'no_quiz_file'], // which one?
       [zipSync({ 'quiz.json': strToU8('{ broken') }), 'json'],
       [new Uint8Array([0x50, 0x4b, 1, 2, 3]), 'bad_zip'],
     ];
@@ -256,14 +257,74 @@ describe('quizzes written by hand', () => {
   });
 });
 
+describe('quizzes written in Markdown', () => {
+  const derivatives = [
+    '# Derivadas {tempo=45}',
+    '',
+    '## Qual é a derivada de $x^2$?',
+    '',
+    '- [ ] $x$',
+    '- [x] $2x$',
+    '- [ ] $\\frac{x^3}{3}$',
+    '',
+    '## Quão seguro você se sente? {tempo=20}',
+    '',
+    '- Muito',
+    '- Ainda não',
+  ].join('\n');
+
+  it('imports a Markdown file uploaded on its own, formulas untouched', async () => {
+    const quiz = await imported('derivadas.md', strToU8(derivatives));
+    expect(quiz).toMatchObject({ title: 'Derivadas', defaultTimeLimitS: 45 });
+    const [question, poll] = quiz.questions;
+    expect(question).toMatchObject({ kind: 'quiz', selection: 'single', timeLimitS: null });
+    expect(question!.options.map((option) => [option.body, option.correct])).toEqual([
+      ['$x$', false],
+      ['$2x$', true],
+      ['$\\frac{x^3}{3}$', false],
+    ]);
+    expect(poll).toMatchObject({ kind: 'poll', timeLimitS: 20 });
+    expect(countIncompleteQuestions(quiz)).toBe(0);
+  });
+
+  it('finds the Markdown file in a zip, with its images', async () => {
+    const zip = zipSync({
+      'Derivadas/derivadas.md': strToU8(derivatives.replace('?\n', '?\n\n![gráfico](media/f.png)\n')),
+      'Derivadas/media/f.png': await png(),
+    });
+    const [question] = (await imported('Derivadas.zip', zip)).questions;
+    expect(question!.body).toMatch(/^Qual é a derivada de \$x\^2\$\?\n\n!\[gráfico\]\(\/media\/[\w-]{16}\.webp\)$/);
+  });
+
+  it('says on which line each mistake is', async () => {
+    const problems = await problemsOf('quiz.md', strToU8('# T\n\n## A {tmpo=20}\n\n- [x] a\n- b\n'));
+    expect(problems).toEqual([
+      { code: 'md_setting', line: 3, setting: 'tmpo=20' },
+      { code: 'md_mixed_options', line: 5 },
+    ]);
+  });
+
+  it('still applies the limits of the editor', async () => {
+    const options = Array.from({ length: 11 }, (_, i) => `- [ ] opção ${i + 1}`).join('\n');
+    const problems = await problemsOf('quiz.md', strToU8(`# T\n\n## Demais?\n\n${options}\n`));
+    expect(problems).toEqual([expect.objectContaining({ code: 'field', path: ['questions', 0, 'options'] })]);
+  });
+
+  it('asks for UTF-8 when the file was saved in another encoding', async () => {
+    // As an older Windows Notepad saves it: "ç" and "ã" as single Windows-1252 bytes.
+    const latin1 = Buffer.from('# Questões\n\n## Ação?\n\n- [x] sim\n- [ ] não\n', 'latin1');
+    expect(await problemsOf('quiz.md', latin1)).toEqual([{ code: 'encoding' }]);
+  });
+});
+
 describe('quiz file examples in the READMEs', () => {
   for (const file of ['README.md', 'README.pt.md']) {
-    it(`${file}: every JSON example imports as a quiz ready to run`, async () => {
+    it(`${file}: every Markdown and JSON example imports as a quiz ready to run`, async () => {
       const text = readFileSync(path.join(import.meta.dirname, '..', file), 'utf8');
-      const examples = [...text.matchAll(/```json\n([\s\S]*?)```/g)].map((match) => match[1]!);
-      expect(examples.length).toBeGreaterThan(0);
-      for (const example of examples) {
-        const quiz = await imported('quiz.json', strToU8(example));
+      const examples = [...text.matchAll(/```(markdown|json)\n([\s\S]*?)```/g)];
+      expect(examples.map((match) => match[1]).sort()).toEqual(['json', 'markdown']);
+      for (const [, format, example] of examples) {
+        const quiz = await imported(`quiz.${format === 'json' ? 'json' : 'md'}`, strToU8(example!));
         expect(countIncompleteQuestions(quiz)).toBe(0);
       }
     });

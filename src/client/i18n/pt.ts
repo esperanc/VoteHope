@@ -28,7 +28,7 @@ const pt: Record<MessageKey, string> = {
 
   'dashboard.newQuiz': 'Novo quiz',
   'dashboard.import': 'Importar',
-  'dashboard.importFailed': 'Não foi possível importar este arquivo. Escolha um arquivo de quiz (.zip ou .json).',
+  'dashboard.importFailed': 'Não foi possível importar este arquivo. Escolha um arquivo de quiz (.md, .json ou .zip).',
   'dashboard.importTooLarge': 'Este arquivo é grande demais para ser importado.',
 
   'import.failed': 'Não foi possível importar este arquivo:',
@@ -36,11 +36,20 @@ const pt: Record<MessageKey, string> = {
   'import.question': 'Pergunta {n}',
   'import.option': 'alternativa {n}',
   'import.notAQuiz': 'Este não é um arquivo de quiz do VoteHope.',
+  'import.encoding': 'O arquivo não está salvo como texto UTF-8. Salve-o de novo escolhendo a codificação UTF-8.',
   'import.json': 'O quiz.json não é um JSON válido: {message}',
+  'import.mdNoTitle': 'O arquivo precisa começar com o título do quiz, numa linha como “# Derivadas”.',
+  'import.mdExtraTitle': 'Linha {line}: um segundo título com “#”. As perguntas começam com “##”.',
+  'import.mdAfterOptions':
+    'Linha {line}: texto depois das alternativas. As alternativas precisam ser a última coisa de uma pergunta.',
+  'import.mdMixedOptions':
+    'Linha {line}: as alternativas misturam caixas (“- [x]”) com itens simples (“-”). Use caixas numa pergunta com resposta certa e itens simples numa enquete.',
+  'import.mdSetting':
+    'Linha {line}: “{setting}” não é uma configuração que o VoteHope conheça. Use tempo=N (segundos, de 5 a 600) ou múltipla.',
   'import.escape':
     '{where}: “{command}” virou um caractere invisível, porque o JSON lê uma barra invertida sozinha como escape. Escreva “{doubled}”.',
   'import.badZip': 'O arquivo zip está corrompido.',
-  'import.noQuizJson': 'O zip não tem um quiz.json, nem na raiz nem dentro de uma pasta.',
+  'import.noQuizFile': 'O zip não tem um quiz.md ou quiz.json, nem na raiz nem dentro de uma pasta.',
   'import.missingImage': 'O texto mostra media/{name}, mas essa imagem não está no zip.',
   'import.badImage': 'Não foi possível ler media/{name} como imagem. Use PNG, JPEG, WebP, GIF ou SVG.',
   'import.tooLarge': '{name} é grande demais.',

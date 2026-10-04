@@ -26,7 +26,7 @@ const en = {
 
   'dashboard.newQuiz': 'New quiz',
   'dashboard.import': 'Import',
-  'dashboard.importFailed': 'This file could not be imported. Choose a quiz file (.zip or .json).',
+  'dashboard.importFailed': 'This file could not be imported. Choose a quiz file (.md, .json or .zip).',
   'dashboard.importTooLarge': 'This file is too large to import.',
 
   'import.failed': 'This file could not be imported:',
@@ -34,11 +34,18 @@ const en = {
   'import.question': 'Question {n}',
   'import.option': 'option {n}',
   'import.notAQuiz': 'This is not a VoteHope quiz file.',
+  'import.encoding': 'The file is not saved as UTF-8 text. Save it again choosing the UTF-8 encoding.',
   'import.json': 'quiz.json is not valid JSON: {message}',
+  'import.mdNoTitle': 'The file must start with the quiz title, on a line like “# Derivatives”.',
+  'import.mdExtraTitle': 'Line {line}: a second title with “#”. Questions start with “##”.',
+  'import.mdAfterOptions': 'Line {line}: text after the options. The options must be the last thing in a question.',
+  'import.mdMixedOptions':
+    'Line {line}: the options mix boxes (“- [x]”) with plain items (“-”). Use boxes for a question with a right answer, plain items for a poll.',
+  'import.mdSetting': 'Line {line}: “{setting}” is not a setting VoteHope knows. Use time=N (seconds, 5 to 600) or multiple.',
   'import.escape':
     '{where}: “{command}” turned into an invisible character, because JSON reads a single backslash as an escape. Write “{doubled}”.',
   'import.badZip': 'The zip file is damaged.',
-  'import.noQuizJson': 'The zip has no quiz.json, either at the top or inside one folder.',
+  'import.noQuizFile': 'The zip has no quiz.md or quiz.json, either at the top or inside one folder.',
   'import.missingImage': 'The text shows media/{name}, but there is no such image in the zip.',
   'import.badImage': 'media/{name} could not be read as an image. Use PNG, JPEG, WebP, GIF or SVG.',
   'import.tooLarge': '{name} is too large.',

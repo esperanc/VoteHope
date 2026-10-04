@@ -177,13 +177,65 @@ Everything lives in `DATA_DIR` (the `votehope-data` volume under Docker):
 
 ## Writing quizzes without the editor
 
-A quiz can also be written as a file — by hand, or by a script that turns existing
-material into questions — and brought in with **Import** on the quiz list. The quiz
-then opens in the editor, which points out anything still incomplete (a missing
-option, no correct answer marked) before it can be run.
+A quiz can also be written as a text file — by hand, or by a script that turns existing
+material into questions — and brought in with **Import** on the quiz list. It then
+opens in the editor, which points out anything still incomplete (a missing option, no
+correct answer marked) before the quiz can be run.
 
-A quiz file is a `quiz.json`, on its own or zipped together with its images. Only the
-title, the questions and their options are required:
+Two formats are accepted: **Markdown**, the easier one to write by hand, and **JSON**,
+handy for scripts. Either can be imported on its own or zipped together with its
+images. Save the file as UTF-8, which most editors do by default.
+
+### Markdown
+
+```markdown
+# Derivatives: warm-up {time=45}
+
+A few questions to start the class.
+
+## What is the derivative of $x^2$?
+
+- [ ] $x$
+- [x] $2x$
+- [ ] $\frac{x^3}{3}$
+
+## Which functions are continuous at every real number?
+
+- [x] $\sin x$
+- [x] $|x|$
+- [ ] $\frac{1}{x}$
+
+## How confident do you feel about the chain rule? {time=20}
+
+- Very
+- Somewhat
+- Not yet
+```
+
+- The file starts with the quiz title, after `#`. Text between it and the first
+  question is the quiz's description.
+- Each question starts with `##`. The heading is the question, and whatever comes
+  between it and the options — more text, formulas, an image — is added below it. A
+  bare `##` starts a question with what follows it, a picture for instance.
+- The options are the list that ends the question: `- [x]` marks a correct option and
+  `- [ ]` a wrong one. With more than one correct, students may choose several.
+- Options without boxes, like `- Very`, make the question a **poll**: there is no right
+  answer, and only how many chose each option is reported.
+- Formulas go between `$…$` or `$$…$$` as in the editor, with single backslashes:
+  `$\frac{1}{2}$`.
+- Settings go in braces at the end of a heading. `{time=20}` gives a question its own
+  time, in seconds from 5 to 600; on the `#` title it sets the time of every question,
+  otherwise 30. `{multiple}` lets students choose more than one option even when only
+  one is correct, or in a poll. They combine: `{time=20 multiple}`.
+- Lines of `---` between questions are ignored, and so are `<!-- comments -->`.
+
+If the question itself ends with a list, mark that list with `*` and the options with
+`-`: two lists in a row with the same marker are read as one.
+
+### JSON
+
+The same kind of quiz, for scripts. Only the title, the questions and their options are
+required:
 
 ```json
 {
@@ -195,14 +247,6 @@ title, the questions and their options are required:
         { "body": "$x$" },
         { "body": "$2x$", "correct": true },
         { "body": "$\\frac{x^3}{3}$" }
-      ]
-    },
-    {
-      "body": "Which functions are continuous at every real number?",
-      "options": [
-        { "body": "$\\sin x$", "correct": true },
-        { "body": "$|x|$", "correct": true },
-        { "body": "$\\frac{1}{x}$" }
       ]
     },
     {
@@ -224,8 +268,6 @@ title, the questions and their options are required:
 while others quietly turn into invisible characters (`\frac`, `\theta`, `\times`,
 `\nabla`). The import catches the usual cases and says where they are. A line break
 inside a text is written `\n`.
-
-### Fields
 
 **Quiz**
 
@@ -257,35 +299,36 @@ Questions and options may also have an `id`; one is made up when it is missing.
 
 ### Images
 
-Put the images in a `media` folder beside `quiz.json`, show them with
+Put the images in a `media` folder beside the quiz file, show them with
 `![description](media/graph.png)`, and zip the two together:
 
 ```
 derivatives/
-├── quiz.json
+├── quiz.md
 └── media/
     ├── graph.png
     └── circuit.svg
 ```
 
 ```bash
-cd derivatives && zip -r ../derivatives.zip quiz.json media
+cd derivatives && zip -r ../derivatives.zip quiz.md media
 ```
 
+In a zip, the quiz is `quiz.md` or `quiz.json`, or else the only `.md` file in it.
 Compressing the folder in the Finder or in Windows Explorer works just as well. PNG,
 JPEG, WebP, GIF and SVG images up to 15 MB are accepted, and are treated like images
 added in the editor: photos are scaled down and lose their metadata.
 
 ### When something is wrong
 
-The import lists each problem it finds, with where it is — for instance
-`Question 3 › option 2 › correct: Invalid input: expected boolean, received string`.
-A file with problems is not imported at all; a quiz that is merely incomplete is
-imported, and the editor shows what is missing.
+The import lists each problem it finds and where it is: the line, in a Markdown file
+(`Line 12: text after the options…`), or the question and field, in a JSON one
+(`Question 3 › option 2 › correct: …`). A file with problems is not imported at all; a
+quiz that is merely incomplete is imported, and the editor shows what is missing.
 
-**Export** on the quiz list produces the same format, with every `id` filled in and the
-quiz wrapped as `{"format": "votehope-quiz", "version": 1, "quiz": …}`. Both forms can
-be imported, so an exported quiz is also a good starting point for writing new ones.
+**Export** on the quiz list produces a zip in the JSON format, with every `id` filled in
+and the quiz wrapped as `{"format": "votehope-quiz", "version": 1, "quiz": …}`, which
+imports just as well.
 
 ## Development
 

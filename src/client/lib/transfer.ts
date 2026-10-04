@@ -25,6 +25,8 @@ export function describeProblem(problem: ImportProblem, t: Translate): string {
   switch (problem.code) {
     case 'not_a_quiz':
       return t('import.notAQuiz');
+    case 'encoding':
+      return t('import.encoding');
     case 'json':
       return t('import.json', { message: problem.message });
     case 'field': {
@@ -37,10 +39,20 @@ export function describeProblem(problem: ImportProblem, t: Translate): string {
         command: problem.command,
         doubled: `\\${problem.command}`,
       });
+    case 'md_no_title':
+      return t('import.mdNoTitle');
+    case 'md_extra_title':
+      return t('import.mdExtraTitle', { line: problem.line });
+    case 'md_after_options':
+      return t('import.mdAfterOptions', { line: problem.line });
+    case 'md_mixed_options':
+      return t('import.mdMixedOptions', { line: problem.line });
+    case 'md_setting':
+      return t('import.mdSetting', { line: problem.line, setting: problem.setting });
     case 'bad_zip':
       return t('import.badZip');
-    case 'no_quiz_json':
-      return t('import.noQuizJson');
+    case 'no_quiz_file':
+      return t('import.noQuizFile');
     case 'missing_image':
       return t('import.missingImage', { name: problem.name });
     case 'bad_image':

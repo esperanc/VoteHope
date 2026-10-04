@@ -102,7 +102,7 @@
         <Icon name="plus" />
         {t('dashboard.newQuiz')}
       </button>
-      <input type="file" accept=".zip,.json,application/zip,application/json" hidden bind:this={importInput} onchange={importFile} />
+      <input type="file" accept=".zip,.md,.json,application/zip,text/markdown,application/json" hidden bind:this={importInput} onchange={importFile} />
     </div>
   </div>
 
