@@ -177,6 +177,119 @@ imagens enviadas em `media/` e o `session-secret`.
   pedir, pelo e-mail) que digitam ao entrar, e você pode apagar uma sessão com
   todas as respostas a qualquer momento.
 
+## Escrevendo questionários sem o editor
+
+Um questionário também pode ser escrito como arquivo — à mão, ou por um script que
+transforme material já existente em perguntas — e trazido com **Importar**, na lista
+de questionários. Ele então abre no editor, que aponta o que ainda estiver incompleto
+(uma alternativa faltando, nenhuma resposta certa marcada) antes que possa ser aplicado.
+
+Um arquivo de questionário é um `quiz.json`, sozinho ou num zip junto com as imagens.
+Só o título, as perguntas e suas alternativas são obrigatórios:
+
+```json
+{
+  "title": "Derivadas: aquecimento",
+  "questions": [
+    {
+      "body": "Qual é a derivada de $x^2$?",
+      "options": [
+        { "body": "$x$" },
+        { "body": "$2x$", "correct": true },
+        { "body": "$\\frac{x^3}{3}$" }
+      ]
+    },
+    {
+      "body": "Quais funções são contínuas em todos os números reais?",
+      "options": [
+        { "body": "$\\sin x$", "correct": true },
+        { "body": "$|x|$", "correct": true },
+        { "body": "$\\frac{1}{x}$" }
+      ]
+    },
+    {
+      "kind": "poll",
+      "body": "Quão seguro você se sente com a regra da cadeia?",
+      "timeLimitS": 20,
+      "options": [
+        { "body": "Muito" },
+        { "body": "Mais ou menos" },
+        { "body": "Ainda não" }
+      ]
+    }
+  ]
+}
+```
+
+**Barras invertidas.** Em JSON, toda barra invertida é escrita duas vezes: `\\frac`,
+`\\theta`, `\\sqrt`. Com uma só, alguns comandos tornam o arquivo inválido (`\sqrt`,
+`\sin`), enquanto outros viram, sem aviso, caracteres invisíveis (`\frac`, `\theta`,
+`\times`, `\nabla`). A importação pega os casos comuns e diz onde estão. Uma quebra de
+linha dentro de um texto é escrita `\n`.
+
+### Campos
+
+**Questionário**
+
+| Campo | Se omitido | Significado |
+|---|---|---|
+| `title` | obrigatório | Até 200 caracteres |
+| `questions` | obrigatório | Até 200 perguntas |
+| `description` | vazio | Observações sobre o questionário, até 2000 caracteres |
+| `defaultTimeLimitS` | `30` | Segundos para cada pergunta, de 5 a 600, nas sessões ao vivo e nas sessões no próprio ritmo com tempo por pergunta |
+
+**Pergunta**
+
+| Campo | Se omitido | Significado |
+|---|---|---|
+| `body` | obrigatório | A pergunta: Markdown com fórmulas `$…$` e `$$…$$`, até 10 000 caracteres |
+| `options` | obrigatório | De 2 a 10 alternativas |
+| `kind` | `"quiz"` | `"quiz"` tem alternativas corretas; `"poll"` (enquete) não tem, e só se mostra quantos escolheram cada alternativa |
+| `selection` | decorre das alternativas | `"single"` (o aluno escolhe uma alternativa) ou `"multiple"` (uma ou mais). Se omitido, é `"multiple"` quando há mais de uma alternativa correta |
+| `timeLimitS` | o do questionário | Segundos só para esta pergunta |
+
+**Alternativa**
+
+| Campo | Se omitido | Significado |
+|---|---|---|
+| `body` | obrigatório | Markdown com fórmulas, até 2000 caracteres |
+| `correct` | `false` | Se escolhê-la está certo. Uma pergunta só conta como certa quando exatamente as alternativas corretas são escolhidas |
+
+Perguntas e alternativas também podem ter um `id`; quando falta, um é criado.
+
+### Imagens
+
+Coloque as imagens numa pasta `media` ao lado do `quiz.json`, mostre-as com
+`![descrição](media/grafico.png)` e junte os dois num zip:
+
+```
+derivadas/
+├── quiz.json
+└── media/
+    ├── grafico.png
+    └── circuito.svg
+```
+
+```bash
+cd derivadas && zip -r ../derivadas.zip quiz.json media
+```
+
+Comprimir a pasta pelo Finder ou pelo Explorador do Windows também funciona. São
+aceitas imagens PNG, JPEG, WebP, GIF e SVG de até 15 MB, tratadas como as adicionadas
+no editor: fotos são reduzidas e perdem os metadados.
+
+### Quando algo está errado
+
+A importação lista cada problema que encontrar, com o lugar onde está — por exemplo
+`Pergunta 3 › alternativa 2 › correct: Invalid input: expected boolean, received string`.
+Um arquivo com problemas não é importado; um questionário apenas incompleto é
+importado, e o editor mostra o que falta.
+
+**Exportar**, na lista de questionários, gera o mesmo formato, com todos os `id`
+preenchidos e o questionário envolvido em `{"format": "votehope-quiz", "version": 1, "quiz": …}`.
+As duas formas podem ser importadas, então um questionário exportado também é um bom
+ponto de partida para escrever outros.
+
 ## Desenvolvimento
 
 Requer Node.js 24 ou mais novo.

@@ -1,13 +1,20 @@
 <script lang="ts">
   import { LIMITS, newQuestion, type Quiz, type QuizSummary } from '../../../shared/quiz.ts';
+  import type { ImportProblem } from '../../../shared/transfer.ts';
   import AdminHeader from '../../components/AdminHeader.svelte';
   import Icon from '../../components/Icon.svelte';
   import { api, ApiError, upload } from '../../lib/api.ts';
   import { formatDateTime, t, tn, type MessageKey } from '../../lib/i18n.svelte.ts';
   import { navigate } from '../../lib/router.svelte.ts';
+  import { describeProblem } from '../../lib/transfer.ts';
+
+  /** A file written by hand can have many mistakes; the first few are enough to start. */
+  const SHOWN_PROBLEMS = 10;
 
   let quizzes = $state<QuizSummary[] | null>(null);
   let error = $state<MessageKey | null>(null);
+  /** What was wrong with the last file imported, one entry per problem. */
+  let importProblems = $state<ImportProblem[] | null>(null);
   let busy = $state(false);
   let importInput: HTMLInputElement;
 
@@ -16,6 +23,7 @@
   async function run(action: () => Promise<void>, errorFor?: (status: number) => MessageKey) {
     busy = true;
     error = null;
+    importProblems = null;
     try {
       await action();
     } catch (err) {
@@ -66,8 +74,14 @@
     if (!file) return;
     run(
       async () => {
-        const quiz = await upload<Quiz>('/api/admin/quizzes/import', file);
-        navigate(`/admin/quizzes/${quiz.id}`);
+        try {
+          const quiz = await upload<Quiz>('/api/admin/quizzes/import', file);
+          navigate(`/admin/quizzes/${quiz.id}`);
+        } catch (err) {
+          const problems = err instanceof ApiError ? (err.body as { problems?: ImportProblem[] } | null)?.problems : undefined;
+          if (!problems?.length) throw err;
+          importProblems = problems;
+        }
       },
       (status) => (status === 413 ? 'dashboard.importTooLarge' : 'dashboard.importFailed'),
     );
@@ -94,6 +108,20 @@
 
   {#if error}
     <p class="error" role="alert">{t(error)}</p>
+  {/if}
+
+  {#if importProblems}
+    <div class="error problems" role="alert">
+      <p>{t('import.failed')}</p>
+      <ul>
+        {#each importProblems.slice(0, SHOWN_PROBLEMS) as problem, i (i)}
+          <li>{describeProblem(problem, t)}</li>
+        {/each}
+      </ul>
+      {#if importProblems.length > SHOWN_PROBLEMS}
+        <p>{t('import.more', { count: importProblems.length - SHOWN_PROBLEMS })}</p>
+      {/if}
+    </div>
   {/if}
 
   {#if quizzes === null}
@@ -157,6 +185,20 @@
   .actions {
     display: flex;
     gap: 0.5rem;
+  }
+
+  .problems {
+    overflow-wrap: anywhere;
+  }
+
+  .problems ul {
+    margin: 0.4rem 0 0;
+    padding-left: 1.2rem;
+  }
+
+  .problems li + li,
+  .problems ul + p {
+    margin-top: 0.3rem;
   }
 
   .quizzes {

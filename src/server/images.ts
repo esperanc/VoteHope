@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { rmSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import sharp, { type Metadata } from 'sharp';
@@ -118,6 +118,11 @@ export function createImageStore(db: DatabaseSync, mediaDir: string) {
       writeFileSync(path.join(mediaDir, filename), image.data);
       insert.run(id, filename, image.mime, image.width, image.height);
       return { url: `/media/${filename}`, width: image.width, height: image.height };
+    },
+
+    /** Whether a stored image of this name is on this server. */
+    has(filename: string): boolean {
+      return MEDIA_FILE.test(filename) && existsSync(path.join(mediaDir, filename));
     },
 
     /**

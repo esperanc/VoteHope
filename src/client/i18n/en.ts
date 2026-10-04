@@ -26,8 +26,22 @@ const en = {
 
   'dashboard.newQuiz': 'New quiz',
   'dashboard.import': 'Import',
-  'dashboard.importFailed': 'This file could not be imported. Choose a quiz file exported from VoteHope (.zip).',
+  'dashboard.importFailed': 'This file could not be imported. Choose a quiz file (.zip or .json).',
   'dashboard.importTooLarge': 'This file is too large to import.',
+
+  'import.failed': 'This file could not be imported:',
+  'import.more': '…and {count} more.',
+  'import.question': 'Question {n}',
+  'import.option': 'option {n}',
+  'import.notAQuiz': 'This is not a VoteHope quiz file.',
+  'import.json': 'quiz.json is not valid JSON: {message}',
+  'import.escape':
+    '{where}: “{command}” turned into an invisible character, because JSON reads a single backslash as an escape. Write “{doubled}”.',
+  'import.badZip': 'The zip file is damaged.',
+  'import.noQuizJson': 'The zip has no quiz.json, either at the top or inside one folder.',
+  'import.missingImage': 'The text shows media/{name}, but there is no such image in the zip.',
+  'import.badImage': 'media/{name} could not be read as an image. Use PNG, JPEG, WebP, GIF or SVG.',
+  'import.tooLarge': '{name} is too large.',
   'dashboard.questions.one': '1 question',
   'dashboard.questions.other': '{count} questions',
   'dashboard.incomplete.one': '1 question incomplete',

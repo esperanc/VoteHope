@@ -193,8 +193,12 @@ Per session (admin only):
 - Image upload (button, drag-and-drop, or paste from clipboard) → inserted as Markdown
   image. Server downsizes to max 1600 px and re-encodes, to keep phone downloads small.
 - "Preview as student" (phone-sized) for a whole quiz.
-- **Import / export a quiz as a single file** (JSON + images in a zip): backup, and
-  sharing quizzes between different VoteHope installations.
+- **Import / export a quiz as a single file** (JSON + images in a zip): backup, sharing
+  quizzes between VoteHope installations, and quizzes written by hand or by a script.
+  Import fills in what has an obvious default (ids, `correct`, `selection`), takes
+  images under their own names, and refuses a broken file with every problem and its
+  place listed — including LaTeX commands whose single backslash JSON read as an
+  escape. The format is documented in the README.
 
 ---
 

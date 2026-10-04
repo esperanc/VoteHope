@@ -73,7 +73,7 @@ export function authoringRoutes({ auth, quizzes, images, mediaDir }: Deps): Fast
       try {
         return reply.code(201).send(quizzes.create(await importQuiz(data, images)));
       } catch (err) {
-        if (err instanceof ImportError) return reply.code(400).send({ error: 'invalid_file' });
+        if (err instanceof ImportError) return reply.code(400).send({ error: 'invalid_file', problems: err.problems });
         throw err;
       }
     });

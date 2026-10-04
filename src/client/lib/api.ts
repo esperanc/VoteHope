@@ -2,11 +2,14 @@ export class ApiError extends Error {
   /** HTTP status, or 0 when the server could not be reached. */
   readonly status: number;
   readonly code: string;
+  /** The whole JSON error body, for errors that carry details (e.g. import problems). */
+  readonly body: unknown;
 
-  constructor(status: number, code: string) {
+  constructor(status: number, code: string, body: unknown = null) {
     super(code);
     this.status = status;
     this.code = code;
+    this.body = body;
   }
 }
 
@@ -30,7 +33,7 @@ async function send<T>(url: string, init: RequestInit): Promise<T> {
   const data = isJson ? await response.json() : null;
   if (!response.ok) {
     if (response.status === 401 && url.startsWith('/api/admin/') && !url.endsWith('/login')) onUnauthorized?.();
-    throw new ApiError(response.status, data?.error ?? 'http_error');
+    throw new ApiError(response.status, data?.error ?? 'http_error', data);
   }
   return data as T;
 }

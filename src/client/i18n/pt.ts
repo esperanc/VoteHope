@@ -28,9 +28,22 @@ const pt: Record<MessageKey, string> = {
 
   'dashboard.newQuiz': 'Novo quiz',
   'dashboard.import': 'Importar',
-  'dashboard.importFailed':
-    'Não foi possível importar este arquivo. Escolha um arquivo de quiz exportado do VoteHope (.zip).',
+  'dashboard.importFailed': 'Não foi possível importar este arquivo. Escolha um arquivo de quiz (.zip ou .json).',
   'dashboard.importTooLarge': 'Este arquivo é grande demais para ser importado.',
+
+  'import.failed': 'Não foi possível importar este arquivo:',
+  'import.more': '…e mais {count}.',
+  'import.question': 'Pergunta {n}',
+  'import.option': 'alternativa {n}',
+  'import.notAQuiz': 'Este não é um arquivo de quiz do VoteHope.',
+  'import.json': 'O quiz.json não é um JSON válido: {message}',
+  'import.escape':
+    '{where}: “{command}” virou um caractere invisível, porque o JSON lê uma barra invertida sozinha como escape. Escreva “{doubled}”.',
+  'import.badZip': 'O arquivo zip está corrompido.',
+  'import.noQuizJson': 'O zip não tem um quiz.json, nem na raiz nem dentro de uma pasta.',
+  'import.missingImage': 'O texto mostra media/{name}, mas essa imagem não está no zip.',
+  'import.badImage': 'Não foi possível ler media/{name} como imagem. Use PNG, JPEG, WebP, GIF ou SVG.',
+  'import.tooLarge': '{name} é grande demais.',
   'dashboard.questions.one': '1 pergunta',
   'dashboard.questions.other': '{count} perguntas',
   'dashboard.incomplete.one': '1 pergunta incompleta',

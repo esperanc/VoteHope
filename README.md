@@ -175,6 +175,118 @@ Everything lives in `DATA_DIR` (the `votehope-data` volume under Docker):
   optionally the email) they type when joining, and you can delete a session with
   all its answers at any time.
 
+## Writing quizzes without the editor
+
+A quiz can also be written as a file — by hand, or by a script that turns existing
+material into questions — and brought in with **Import** on the quiz list. The quiz
+then opens in the editor, which points out anything still incomplete (a missing
+option, no correct answer marked) before it can be run.
+
+A quiz file is a `quiz.json`, on its own or zipped together with its images. Only the
+title, the questions and their options are required:
+
+```json
+{
+  "title": "Derivatives: warm-up",
+  "questions": [
+    {
+      "body": "What is the derivative of $x^2$?",
+      "options": [
+        { "body": "$x$" },
+        { "body": "$2x$", "correct": true },
+        { "body": "$\\frac{x^3}{3}$" }
+      ]
+    },
+    {
+      "body": "Which functions are continuous at every real number?",
+      "options": [
+        { "body": "$\\sin x$", "correct": true },
+        { "body": "$|x|$", "correct": true },
+        { "body": "$\\frac{1}{x}$" }
+      ]
+    },
+    {
+      "kind": "poll",
+      "body": "How confident do you feel about the chain rule?",
+      "timeLimitS": 20,
+      "options": [
+        { "body": "Very" },
+        { "body": "Somewhat" },
+        { "body": "Not yet" }
+      ]
+    }
+  ]
+}
+```
+
+**Backslashes.** In JSON every backslash is written twice: `\\frac`, `\\theta`,
+`\\sqrt`. With a single one, some commands make the file invalid (`\sqrt`, `\sin`)
+while others quietly turn into invisible characters (`\frac`, `\theta`, `\times`,
+`\nabla`). The import catches the usual cases and says where they are. A line break
+inside a text is written `\n`.
+
+### Fields
+
+**Quiz**
+
+| Field | If left out | Meaning |
+|---|---|---|
+| `title` | required | Up to 200 characters |
+| `questions` | required | Up to 200 questions |
+| `description` | empty | Notes about the quiz, up to 2000 characters |
+| `defaultTimeLimitS` | `30` | Seconds for each question, from 5 to 600, in live sessions and in self-paced sessions timed per question |
+
+**Question**
+
+| Field | If left out | Meaning |
+|---|---|---|
+| `body` | required | The question: Markdown with `$…$` and `$$…$$` formulas, up to 10 000 characters |
+| `options` | required | 2 to 10 options |
+| `kind` | `"quiz"` | `"quiz"` has correct options; `"poll"` has none, and only how many chose each option is reported |
+| `selection` | follows from the options | `"single"` (students choose one option) or `"multiple"` (one or more). Left out, it is `"multiple"` when more than one option is correct |
+| `timeLimitS` | the quiz's | Seconds for this question alone |
+
+**Option**
+
+| Field | If left out | Meaning |
+|---|---|---|
+| `body` | required | Markdown with formulas, up to 2000 characters |
+| `correct` | `false` | Whether choosing it is right. A question counts as right only when exactly the correct options are chosen |
+
+Questions and options may also have an `id`; one is made up when it is missing.
+
+### Images
+
+Put the images in a `media` folder beside `quiz.json`, show them with
+`![description](media/graph.png)`, and zip the two together:
+
+```
+derivatives/
+├── quiz.json
+└── media/
+    ├── graph.png
+    └── circuit.svg
+```
+
+```bash
+cd derivatives && zip -r ../derivatives.zip quiz.json media
+```
+
+Compressing the folder in the Finder or in Windows Explorer works just as well. PNG,
+JPEG, WebP, GIF and SVG images up to 15 MB are accepted, and are treated like images
+added in the editor: photos are scaled down and lose their metadata.
+
+### When something is wrong
+
+The import lists each problem it finds, with where it is — for instance
+`Question 3 › option 2 › correct: Invalid input: expected boolean, received string`.
+A file with problems is not imported at all; a quiz that is merely incomplete is
+imported, and the editor shows what is missing.
+
+**Export** on the quiz list produces the same format, with every `id` filled in and the
+quiz wrapped as `{"format": "votehope-quiz", "version": 1, "quiz": …}`. Both forms can
+be imported, so an exported quiz is also a good starting point for writing new ones.
+
 ## Development
 
 Requires Node.js 24 or newer.
